@@ -11,6 +11,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu cập nhật profile
@@ -19,28 +21,29 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProfileRequest {
 
     @NotBlank(message = "Họ tên không được để trống")
     @Size(max = 120, message = "Họ tên không quá 120 ký tự")
-    private String fullName;
+    String fullName;
 
     @Size(max = 30, message = "Số điện thoại không quá 30 ký tự")
-    private String phone;
+    String phone;
 
     @Size(max = 500, message = "URL avatar không quá 500 ký tự")
-    private String avatarUrl;
+    String avatarUrl;
 
     @Size(max = 255, message = "Địa chỉ không quá 255 ký tự")
-    private String address;
+    String address;
 
-    private LocalDate dob;
+    LocalDate dob;
 
-    private Gender gender;
+    Gender gender;
 
     @Size(max = 50, message = "Số CMND/CCCD không quá 50 ký tự")
-    private String idCardNumber;
+    String idCardNumber;
 
     @Size(max = 100, message = "Quốc tịch không quá 100 ký tự")
-    private String nationality;
+    String nationality;
 }

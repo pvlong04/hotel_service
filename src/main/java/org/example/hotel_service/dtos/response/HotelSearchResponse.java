@@ -9,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO phản hồi tìm kiếm khách sạn
@@ -17,27 +19,28 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class HotelSearchResponse {
-    private Integer hotelId;
-    private String name;
-    private String address;
-    private Integer starRating;
-    private String primaryImageUrl;
-    private List<RoomImage> images;
+    Integer hotelId;
+    String name;
+    String address;
+    Integer starRating;
+    String primaryImageUrl;
+    List<RoomImage> images;
 
     // Thống kê
-    private BigDecimal averageRating;
-    private Integer reviewCount;
+    BigDecimal averageRating;
+    Integer reviewCount;
 
     // Giá thấp nhất
-    private Integer minPrice;
-    private Integer maxPrice;
+    Integer minPrice;
+    Integer maxPrice;
 
     // Phòng trống
-    private Integer availableRooms;
+    Integer availableRooms;
 
     // Vị trí
-    private BigDecimal latitude;
-    private BigDecimal longitude;
-    private BigDecimal distance; // km từ vị trí tìm kiếm
+    BigDecimal latitude;
+    BigDecimal longitude;
+    BigDecimal distance; // km từ vị trí tìm kiếm
 }

@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.ReservationItemStatus;
 
 @Entity
@@ -13,41 +15,42 @@ import org.example.hotel_service.enums.ReservationItemStatus;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class ReservationItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "reservation_item_id")
-    private Long reservationItemId;
+    Long reservationItemId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", nullable = false)
-    private Reservation reservation;
+    Reservation reservation;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
-    private Room room;
+    Room room;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_type_id", nullable = false)
-    private RoomType roomType;
+    RoomType roomType;
 
     @Column(name = "rate_per_night", nullable = false)
     @Builder.Default
-    private Integer ratePerNight = 0;
+    Integer ratePerNight = 0;
 
     @Column(name = "nights", nullable = false)
     @Builder.Default
-    private Integer nights = 1;
+    Integer nights = 1;
 
     @Column(name = "amount", nullable = false)
     @Builder.Default
-    private Integer amount = 0;
+    Integer amount = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default
-    private ReservationItemStatus status = ReservationItemStatus.BOOKED;
+    ReservationItemStatus status = ReservationItemStatus.BOOKED;
 
     @PrePersist
     protected void onCreate() {

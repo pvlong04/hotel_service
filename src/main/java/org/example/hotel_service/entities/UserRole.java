@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
@@ -13,27 +15,28 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @IdClass(UserRoleId.class)
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserRole {
 
     @Id
     @Column(name = "user_id")
-    private Long userId;
+    Long userId;
 
     @Id
     @Column(name = "role_id")
-    private Integer roleId;
+    Integer roleId;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     // Relationships
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
-    private User user;
+    User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", insertable = false, updatable = false)
-    private Role role;
+    Role role;
 
     @PrePersist
     protected void onCreate() {

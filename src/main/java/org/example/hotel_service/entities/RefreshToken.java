@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
@@ -12,34 +14,35 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RefreshToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "rt_id")
-    private Long rtId;
+    Long rtId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    User user;
 
     @Column(name = "token_hash", nullable = false)
-    private String tokenHash;
+    String tokenHash;
 
     @Column(name = "expires_at", nullable = false)
-    private LocalDateTime expiresAt;
+    LocalDateTime expiresAt;
 
     @Column(name = "revoked_at")
-    private LocalDateTime revokedAt;
+    LocalDateTime revokedAt;
 
     @Column(name = "user_agent")
-    private String userAgent;
+    String userAgent;
 
     @Column(name = "ip_address", length = 64)
-    private String ipAddress;
+    String ipAddress;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {

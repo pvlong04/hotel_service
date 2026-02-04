@@ -9,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu cập nhật trạng thái phòng
@@ -17,11 +19,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateRoomStatusRequest {
 
     @NotNull(message = "Trạng thái không được để trống")
-    private RoomStatus status;
+    RoomStatus status;
 
     @Size(max = 255, message = "Lý do không quá 255 ký tự")
-    private String reason;
+    String reason;
 }

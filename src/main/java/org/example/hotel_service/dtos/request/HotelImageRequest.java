@@ -10,6 +10,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu thêm hình ảnh khách sạn
@@ -18,23 +20,24 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class HotelImageRequest {
 
     @NotNull(message = "Hotel ID không được để trống")
-    private Integer hotelId;
+    Integer hotelId;
 
     @NotBlank(message = "URL hình ảnh không được để trống")
     @Size(max = 500, message = "URL không quá 500 ký tự")
-    private String url;
+    String url;
 
-    private HotelImageType imageType;
-
-    @Builder.Default
-    private Integer displayOrder = 0;
+    HotelImageType imageType;
 
     @Builder.Default
-    private Boolean isPrimary = false;
+    Integer displayOrder = 0;
+
+    @Builder.Default
+    Boolean isPrimary = false;
 
     @Size(max = 255, message = "Alt text không quá 255 ký tự")
-    private String altText;
+    String altText;
 }

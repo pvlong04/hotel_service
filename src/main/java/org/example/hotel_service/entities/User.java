@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.UserStatus;
 
 import java.time.LocalDateTime;
@@ -15,39 +17,43 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Long userId;
+    Long userId;
+
+    @Column(name = "username", nullable = false, unique = true, length = 50)
+    String username;
 
     @Column(name = "email", nullable = false, unique = true, length = 150)
-    private String email;
+    String email;
 
     @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
+    String passwordHash;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private UserStatus status;
+    UserStatus status;
 
     @Column(name = "last_login_at")
-    private LocalDateTime lastLoginAt;
+    LocalDateTime lastLoginAt;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    LocalDateTime updatedAt;
 
     // Relationships
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private Profile profile;
+    Profile profile;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<UserRole> userRoles = new ArrayList<>();
+    List<UserRole> userRoles = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

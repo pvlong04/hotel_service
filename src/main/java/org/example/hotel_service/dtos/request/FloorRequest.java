@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu tạo/cập nhật tầng
@@ -16,17 +18,18 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class FloorRequest {
 
     @NotNull(message = "Hotel ID không được để trống")
-    private Integer hotelId;
+    Integer hotelId;
 
     @NotBlank(message = "Mã tầng không được để trống")
     @Size(max = 40, message = "Mã tầng không quá 40 ký tự")
-    private String code;
+    String code;
 
     @Size(max = 120, message = "Tên tầng không quá 120 ký tự")
-    private String name;
+    String name;
 
-    private Integer floorOrder;
+    Integer floorOrder;
 }

@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO phản hồi tạo đặt phòng
@@ -12,11 +14,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class ReservationCreatedResponse {
-    private Long reservationId;
-    private String reservationCode;
-    private Integer totalAmount;
-    private String status;
-    private String paymentUrl; // URL thanh toán (nếu có)
-    private String message;
+    Long reservationId;
+    String reservationCode;
+    Integer totalAmount;
+    String status;
+    String paymentUrl; // URL thanh toán (nếu có)
+    String message;
 }

@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO phản hồi tìm kiếm phòng trống
@@ -20,39 +22,41 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomAvailabilityResponse {
-    private Integer hotelId;
-    private String hotelName;
-    private LocalDate checkInDate;
-    private LocalDate checkOutDate;
-    private Integer nights;
-    private List<AvailableRoomType> roomTypes;
+    Integer hotelId;
+    String hotelName;
+    LocalDate checkInDate;
+    LocalDate checkOutDate;
+    Integer nights;
+    List<AvailableRoomType> roomTypes;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AvailableRoomType {
-        private Long roomTypeId;
-        private String code;
-        private String name;
-        private String description;
-        private Integer capacity;
-        private Integer maxAdults;
-        private Integer maxChildren;
-        private BedType bedType;
-        private BigDecimal roomSize;
+        Long roomTypeId;
+        String code;
+        String name;
+        String description;
+        Integer capacity;
+        Integer maxAdults;
+        Integer maxChildren;
+        BedType bedType;
+        BigDecimal roomSize;
 
         // Giá
-        private Integer pricePerNight;
-        private Integer totalPrice;
+        Integer pricePerNight;
+        Integer totalPrice;
 
         // Số phòng trống
-        private Integer availableRooms;
+        Integer availableRooms;
 
         // Hình ảnh và tiện nghi
-        private String primaryImageUrl;
-        private List<RoomType> images;
-        private List<Amenity> amenities;
+        String primaryImageUrl;
+        List<RoomType> images;
+        List<Amenity> amenities;
     }
 }

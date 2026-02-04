@@ -2,9 +2,10 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -14,26 +15,27 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Amenity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "amenity_id")
-    private Integer amenityId;
+    Integer amenityId;
 
     @Column(name = "name", nullable = false, unique = true, length = 120)
-    private String name;
+    String name;
 
     @Column(name = "description")
-    private String description;
+    String description;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     // Relationships
     @ManyToMany(mappedBy = "amenities", fetch = FetchType.LAZY)
     @Builder.Default
-    private List<RoomType> roomTypes = new ArrayList<>();
+    List<RoomType> roomTypes = new java.util.ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

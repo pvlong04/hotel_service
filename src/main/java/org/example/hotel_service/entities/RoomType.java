@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.RoomTypeStatus;
 
 import java.time.LocalDateTime;
@@ -17,54 +19,55 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "room_type_id")
-    private Long roomTypeId;
+    Long roomTypeId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hotel_id", nullable = false)
-    private Hotel hotel;
+    Hotel hotel;
 
     @Column(name = "code", nullable = false, length = 50)
-    private String code;
+    String code;
 
     @Column(name = "name", nullable = false, length = 150)
-    private String name;
+    String name;
 
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
+    String description;
 
     @Column(name = "capacity", nullable = false)
     @Builder.Default
-    private Integer capacity = 1;
+    Integer capacity = 1;
 
     @Column(name = "price_per_night", nullable = false)
     @Builder.Default
-    private Integer pricePerNight = 0;
+    Integer pricePerNight = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default
-    private RoomTypeStatus status = RoomTypeStatus.ACTIVE;
+    RoomTypeStatus status = RoomTypeStatus.ACTIVE;
 
     @Column(name = "total_rooms", nullable = false)
     @Builder.Default
-    private Integer totalRooms = 0;
+    Integer totalRooms = 0;
 
     @Column(name = "available_rooms", nullable = false)
     @Builder.Default
-    private Integer availableRooms = 0;
+    Integer availableRooms = 0;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     // Relationships
     @OneToMany(mappedBy = "roomType", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<Room> rooms = new ArrayList<>();
+    List<Room> rooms = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -73,7 +76,7 @@ public class RoomType {
             inverseJoinColumns = @JoinColumn(name = "amenity_id")
     )
     @Builder.Default
-    private List<Amenity> amenities = new ArrayList<>();
+    List<Amenity> amenities = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

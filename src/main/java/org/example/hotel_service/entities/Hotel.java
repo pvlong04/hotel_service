@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,43 +16,44 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Hotel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "hotel_id")
-    private Integer hotelId;
+    Integer hotelId;
 
     @Column(name = "name", nullable = false, length = 255)
-    private String name;
+    String name;
 
     @Column(name = "address", length = 255)
-    private String address;
+    String address;
 
     @Column(name = "phone", length = 64)
-    private String phone;
+    String phone;
 
     @Column(name = "email", length = 150)
-    private String email;
+    String email;
 
     @Column(name = "timezone", length = 64)
-    private String timezone;
+    String timezone;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     // Relationships
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<Floor> floors = new ArrayList<>();
+    List<Floor> floors = new ArrayList<>();
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<RoomType> roomTypes = new ArrayList<>();
+    List<RoomType> roomTypes = new ArrayList<>();
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<Room> rooms = new ArrayList<>();
+    List<Room> rooms = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

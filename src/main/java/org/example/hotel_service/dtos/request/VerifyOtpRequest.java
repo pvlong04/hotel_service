@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu xác thực OTP
@@ -14,11 +16,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class VerifyOtpRequest {
 
     @NotBlank(message = "Email không được để trống")
-    private String email;
+    String email;
 
     @NotBlank(message = "Mã OTP không được để trống")
-    private String otp;
+    String otp;
 }

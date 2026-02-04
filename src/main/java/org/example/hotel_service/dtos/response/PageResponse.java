@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO phản hồi phân trang
@@ -14,14 +16,15 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class PageResponse<T> {
-    private List<T> content;
-    private int page;
-    private int size;
-    private long totalElements;
-    private int totalPages;
-    private boolean first;
-    private boolean last;
-    private boolean hasNext;
-    private boolean hasPrevious;
+    List<T> content;
+    int page;
+    int size;
+    long totalElements;
+    int totalPages;
+    boolean first;
+    boolean last;
+    boolean hasNext;
+    boolean hasPrevious;
 }

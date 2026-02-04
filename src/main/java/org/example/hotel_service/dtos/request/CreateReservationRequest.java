@@ -7,9 +7,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.experimental.FieldDefaults;
 import lombok.NoArgsConstructor;
 
 /**
@@ -19,32 +21,33 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateReservationRequest {
 
     @NotNull(message = "Hotel ID không được để trống")
-    private Integer hotelId;
+    Integer hotelId;
 
     @NotNull(message = "Ngày check-in không được để trống")
-    private LocalDate checkInDate;
+    LocalDate checkInDate;
 
     @NotNull(message = "Ngày check-out không được để trống")
-    private LocalDate checkOutDate;
+    LocalDate checkOutDate;
 
     @Min(value = 1, message = "Số người lớn tối thiểu là 1")
     @Builder.Default
-    private Integer adults = 1;
+    Integer adults = 1;
 
     @Min(value = 0, message = "Số trẻ em không được âm")
     @Builder.Default
-    private Integer children = 0;
+    Integer children = 0;
 
     @Size(max = 2000, message = "Yêu cầu đặc biệt không quá 2000 ký tự")
-    private String specialRequests;
+    String specialRequests;
 
     // Danh sách phòng muốn đặt
     @NotNull(message = "Danh sách phòng không được để trống")
     @Size(min = 1, message = "Phải chọn ít nhất 1 phòng")
-    private List<ReservationRoomRequest> rooms;
+    List<ReservationRoomRequest> rooms;
 
     /**
      * Chi tiết phòng trong yêu cầu đặt
@@ -53,11 +56,12 @@ public class CreateReservationRequest {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ReservationRoomRequest {
         @NotNull(message = "Room Type ID không được để trống")
-        private Long roomTypeId;
+        Long roomTypeId;
 
         // Room ID cụ thể (optional - có thể để hệ thống tự chọn)
-        private Long roomId;
+        Long roomId;
     }
 }

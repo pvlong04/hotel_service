@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.RoleName;
 
 import java.time.LocalDateTime;
@@ -15,27 +17,28 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "role_id")
-    private Integer roleId;
+    Integer roleId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "name", nullable = false, unique = true)
-    private RoleName name;
+    RoleName name;
 
     @Column(name = "description")
-    private String description;
+    String description;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     // Relationships
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<UserRole> userRoles = new ArrayList<>();
+    List<UserRole> userRoles = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO phản hồi xác thực (login/register)
@@ -12,22 +14,24 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthResponse {
-    private String accessToken;
-    private String refreshToken;
-    private String tokenType;
-    private Long expiresIn; // seconds
-    private UserInfo user;
+    String accessToken;
+    String refreshToken;
+    String tokenType;
+    Long expiresIn; // seconds
+    UserInfo user;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class UserInfo {
-        private Long userId;
-        private String email;
-        private String fullName;
-        private String avatarUrl;
-        private String role;
+        Long userId;
+        String email;
+        String fullName;
+        String avatarUrl;
+        String role;
     }
 }

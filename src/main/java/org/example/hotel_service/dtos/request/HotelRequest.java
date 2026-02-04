@@ -14,6 +14,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu tạo/cập nhật khách sạn
@@ -22,35 +24,36 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class HotelRequest {
 
     @NotBlank(message = "Tên khách sạn không được để trống")
     @Size(max = 255, message = "Tên khách sạn không quá 255 ký tự")
-    private String name;
+    String name;
 
     @Size(max = 500, message = "Địa chỉ không quá 500 ký tự")
-    private String address;
+    String address;
 
     @Size(max = 64, message = "Số điện thoại không quá 64 ký tự")
-    private String phone;
+    String phone;
 
     @Size(max = 150, message = "Email không quá 150 ký tự")
-    private String email;
+    String email;
 
-    private String description;
+    String description;
 
     @Min(value = 1, message = "Số sao tối thiểu là 1")
     @Max(value = 5, message = "Số sao tối đa là 5")
-    private Integer starRating;
+    Integer starRating;
 
-    private LocalTime checkInTime;
-    private LocalTime checkOutTime;
+    LocalTime checkInTime;
+    LocalTime checkOutTime;
 
-    private BigDecimal latitude;
-    private BigDecimal longitude;
+    BigDecimal latitude;
+    BigDecimal longitude;
 
     @Size(max = 64, message = "Timezone không quá 64 ký tự")
-    private String timezone;
+    String timezone;
 
-    private HotelStatus status;
+    HotelStatus status;
 }

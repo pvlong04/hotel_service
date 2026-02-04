@@ -10,6 +10,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu thêm chi phí phát sinh
@@ -18,22 +20,23 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateChargeRequest {
 
     @NotNull(message = "Reservation ID không được để trống")
-    private Long reservationId;
+    Long reservationId;
 
     @NotNull(message = "Loại chi phí không được để trống")
-    private ChargeType chargeType;
+    ChargeType chargeType;
 
     @Size(max = 255, message = "Mô tả không quá 255 ký tự")
-    private String description;
+    String description;
 
     @Min(value = 1, message = "Số lượng tối thiểu là 1")
     @Builder.Default
-    private Integer quantity = 1;
+    Integer quantity = 1;
 
     @NotNull(message = "Đơn giá không được để trống")
     @Min(value = 0, message = "Đơn giá không được âm")
-    private Integer unitPrice;
+    Integer unitPrice;
 }

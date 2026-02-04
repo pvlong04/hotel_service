@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu kiểm tra phòng trống
@@ -16,22 +18,23 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class CheckAvailabilityRequest {
 
     @NotNull(message = "Hotel ID không được để trống")
-    private Integer hotelId;
+    Integer hotelId;
 
     @NotNull(message = "Ngày check-in không được để trống")
-    private LocalDate checkInDate;
+    LocalDate checkInDate;
 
     @NotNull(message = "Ngày check-out không được để trống")
-    private LocalDate checkOutDate;
+    LocalDate checkOutDate;
 
     @Builder.Default
-    private Integer adults = 1;
+    Integer adults = 1;
     @Builder.Default
-    private Integer children = 0;
+    Integer children = 0;
 
     // Optional: chỉ kiểm tra loại phòng cụ thể
-    private Long roomTypeId;
+    Long roomTypeId;
 }

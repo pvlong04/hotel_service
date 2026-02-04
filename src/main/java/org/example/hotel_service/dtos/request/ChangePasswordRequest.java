@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu đổi mật khẩu
@@ -15,12 +17,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class ChangePasswordRequest {
 
     @NotBlank(message = "Mật khẩu hiện tại không được để trống")
-    private String currentPassword;
+    String currentPassword;
 
     @NotBlank(message = "Mật khẩu mới không được để trống")
     @Size(min = 6, max = 100, message = "Mật khẩu phải từ 6-100 ký tự")
-    private String newPassword;
+    String newPassword;
 }

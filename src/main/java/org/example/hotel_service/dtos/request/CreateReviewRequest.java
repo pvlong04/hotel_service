@@ -9,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu tạo đánh giá
@@ -17,39 +19,40 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateReviewRequest {
 
     @NotNull(message = "Reservation ID không được để trống")
-    private Long reservationId;
+    Long reservationId;
 
     @NotNull(message = "Điểm đánh giá không được để trống")
     @Min(value = 1, message = "Điểm tối thiểu là 1")
     @Max(value = 5, message = "Điểm tối đa là 5")
-    private Integer rating;
+    Integer rating;
 
     @Size(max = 255, message = "Tiêu đề không quá 255 ký tự")
-    private String title;
+    String title;
 
-    private String content;
+    String content;
 
-    // Đánh giá chi tiết (optional)
+    // Điểm chi tiết (optional)
     @Min(value = 1, message = "Điểm tối thiểu là 1")
     @Max(value = 5, message = "Điểm tối đa là 5")
-    private Integer cleanlinessRating;
-
-    @Min(value = 1, message = "Điểm tối thiểu là 1")
-    @Max(value = 5, message = "Điểm tối đa là 5")
-    private Integer serviceRating;
+    Integer cleanlinessRating;
 
     @Min(value = 1, message = "Điểm tối thiểu là 1")
     @Max(value = 5, message = "Điểm tối đa là 5")
-    private Integer locationRating;
+    Integer serviceRating;
 
     @Min(value = 1, message = "Điểm tối thiểu là 1")
     @Max(value = 5, message = "Điểm tối đa là 5")
-    private Integer facilitiesRating;
+    Integer locationRating;
 
     @Min(value = 1, message = "Điểm tối thiểu là 1")
     @Max(value = 5, message = "Điểm tối đa là 5")
-    private Integer valueRating;
+    Integer facilitiesRating;
+
+    @Min(value = 1, message = "Điểm tối thiểu là 1")
+    @Max(value = 5, message = "Điểm tối đa là 5")
+    Integer valueRating;
 }

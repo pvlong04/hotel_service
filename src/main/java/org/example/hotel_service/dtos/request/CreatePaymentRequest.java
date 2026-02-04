@@ -10,6 +10,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu thanh toán
@@ -18,21 +20,22 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreatePaymentRequest {
 
     @NotNull(message = "Reservation ID không được để trống")
-    private Long reservationId;
+    Long reservationId;
 
     @NotNull(message = "Số tiền không được để trống")
     @Min(value = 1, message = "Số tiền phải lớn hơn 0")
-    private Integer amount;
+    Integer amount;
 
     @NotNull(message = "Phương thức thanh toán không được để trống")
-    private PaymentMethod method;
+    PaymentMethod method;
 
     @Size(max = 100, message = "Provider không quá 100 ký tự")
-    private String provider;
+    String provider;
 
     @Size(max = 500, message = "Ghi chú không quá 500 ký tự")
-    private String notes;
+    String notes;
 }

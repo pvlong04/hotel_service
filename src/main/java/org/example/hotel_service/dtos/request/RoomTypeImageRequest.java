@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu thêm hình ảnh loại phòng
@@ -16,21 +18,22 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomTypeImageRequest {
 
     @NotNull(message = "Room Type ID không được để trống")
-    private Long roomTypeId;
+    Long roomTypeId;
 
     @NotBlank(message = "URL hình ảnh không được để trống")
     @Size(max = 500, message = "URL không quá 500 ký tự")
-    private String url;
+    String url;
 
     @Builder.Default
-    private Integer displayOrder = 0;
+    Integer displayOrder = 0;
 
     @Builder.Default
-    private Boolean isPrimary = false;
+    Boolean isPrimary = false;
 
     @Size(max = 255, message = "Alt text không quá 255 ký tự")
-    private String altText;
+    String altText;
 }

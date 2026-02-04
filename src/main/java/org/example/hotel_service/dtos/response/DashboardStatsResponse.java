@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO thống kê dashboard cho Admin/Staff
@@ -14,31 +16,32 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class DashboardStatsResponse {
     // Tổng quan
-    private Integer totalRooms;
-    private Integer availableRooms;
-    private Integer occupiedRooms;
-    private Integer maintenanceRooms;
-    private BigDecimal occupancyRate; // Tỷ lệ lấp đầy (%)
+    Integer totalRooms;
+    Integer availableRooms;
+    Integer occupiedRooms;
+    Integer maintenanceRooms;
+    BigDecimal occupancyRate; // Tỷ lệ lấp đầy (%)
 
     // Đặt phòng
-    private Integer todayCheckIns;
-    private Integer todayCheckOuts;
-    private Integer pendingReservations;
-    private Integer confirmedReservations;
+    Integer todayCheckIns;
+    Integer todayCheckOuts;
+    Integer pendingReservations;
+    Integer confirmedReservations;
 
     // Doanh thu
-    private Long todayRevenue;
-    private Long monthRevenue;
-    private Long yearRevenue;
+    Long todayRevenue;
+    Long monthRevenue;
+    Long yearRevenue;
 
     // Khách hàng
-    private Integer totalGuests;
-    private Integer newGuestsThisMonth;
+    Integer totalGuests;
+    Integer newGuestsThisMonth;
 
     // Đánh giá
-    private BigDecimal averageRating;
-    private Integer totalReviews;
-    private Integer newReviewsThisMonth;
+    BigDecimal averageRating;
+    Integer totalReviews;
+    Integer newReviewsThisMonth;
 }

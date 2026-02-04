@@ -15,6 +15,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * DTO yêu cầu tạo/cập nhật loại phòng
@@ -23,45 +25,46 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomTypeRequest {
 
     @NotNull(message = "Hotel ID không được để trống")
-    private Integer hotelId;
+    Integer hotelId;
 
     @NotBlank(message = "Mã loại phòng không được để trống")
     @Size(max = 50, message = "Mã loại phòng không quá 50 ký tự")
-    private String code;
+    String code;
 
     @NotBlank(message = "Tên loại phòng không được để trống")
     @Size(max = 150, message = "Tên loại phòng không quá 150 ký tự")
-    private String name;
+    String name;
 
-    private String description;
+    String description;
 
     @Min(value = 1, message = "Sức chứa tối thiểu là 1")
-    private Integer capacity;
+    Integer capacity;
 
     @Min(value = 1, message = "Số người lớn tối đa tối thiểu là 1")
-    private Integer maxAdults;
+    Integer maxAdults;
 
     @Min(value = 0, message = "Số trẻ em tối đa không được âm")
-    private Integer maxChildren;
+    Integer maxChildren;
 
     @Min(value = 0, message = "Giá cơ bản không được âm")
-    private Integer basePrice;
+    Integer basePrice;
 
     @Min(value = 0, message = "Giá cuối tuần không được âm")
-    private Integer weekendPrice;
+    Integer weekendPrice;
 
     @Min(value = 0, message = "Phí giường phụ không được âm")
-    private Integer extraBedPrice;
+    Integer extraBedPrice;
 
-    private BedType bedType;
+    BedType bedType;
 
-    private BigDecimal roomSize;
+    BigDecimal roomSize;
 
-    private RoomTypeStatus status;
+    RoomTypeStatus status;
 
     // Danh sách ID tiện nghi
-    private List<Integer> amenityIds;
+    List<Integer> amenityIds;
 }

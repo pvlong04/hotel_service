@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
@@ -12,26 +14,27 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomImage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "image_id")
-    private Long imageId;
+    Long imageId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
-    private Room room;
+    Room room;
 
     @Column(name = "url", nullable = false)
-    private String url;
+    String url;
 
     @Column(name = "is_primary", nullable = false)
     @Builder.Default
-    private Boolean isPrimary = false;
+    Boolean isPrimary = false;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {

@@ -2,6 +2,8 @@ package org.example.hotel_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.TokenPurpose;
 
 import java.time.LocalDateTime;
@@ -13,36 +15,37 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "token_id")
-    private Long tokenId;
+    Long tokenId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    User user;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose", nullable = false)
-    private TokenPurpose purpose;
+    TokenPurpose purpose;
 
-    @Column(name = "token_hash", nullable = false, unique = true, length = 255)
-    private String tokenHash;
+    @Column(name = "token_hash", nullable = false, unique = true)
+    String tokenHash;
 
     @Column(name = "expires_at", nullable = false)
-    private LocalDateTime expiresAt;
+    LocalDateTime expiresAt;
 
     @Column(name = "used_at")
-    private LocalDateTime usedAt;
+    LocalDateTime usedAt;
 
     @Column(name = "otp_fail_count", nullable = false)
     @Builder.Default
-    private Integer otpFailCount = 0;
+    Integer otpFailCount = 0;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
