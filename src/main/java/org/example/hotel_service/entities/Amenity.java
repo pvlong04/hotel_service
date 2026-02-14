@@ -21,7 +21,7 @@ public class Amenity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "amenity_id")
-    Integer amenityId;
+    Long amenityId;
 
     @Column(name = "name", nullable = false, unique = true, length = 120)
     String name;

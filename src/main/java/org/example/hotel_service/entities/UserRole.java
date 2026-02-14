@@ -19,24 +19,17 @@ import java.time.LocalDateTime;
 public class UserRole {
 
     @Id
-    @Column(name = "user_id")
-    Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    User user;
 
     @Id
-    @Column(name = "role_id")
-    Integer roleId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id")
+    Role role;
 
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;
-
-    // Relationships
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
-    User user;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", insertable = false, updatable = false)
-    Role role;
 
     @PrePersist
     protected void onCreate() {

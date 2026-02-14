@@ -16,8 +16,8 @@ public enum ErrorCode {
     PASSWORD_VALID(1004, "mật khẩu ít nhất là 8 ký tự"),
     KEY_VALID(1005, "Lỗi hệ thống"),
     USER_NOT_EXIT(1006, "người dùng không tồn tại"),
-    UNAUTHENTICATED(1007, "Đăng nhập thất bại!!!")
-    ;
+    UNAUTHENTICATED(1007, "Đăng nhập thất bại!!!"),
+    USER_EXITS(1008, "Người dùng đã tồn tại");
 
 
     int code;

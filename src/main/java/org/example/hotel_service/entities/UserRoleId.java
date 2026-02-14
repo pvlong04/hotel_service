@@ -13,6 +13,6 @@ import java.io.Serializable;
 @EqualsAndHashCode
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserRoleId implements Serializable {
-    Long userId;
-    Integer roleId;
+    Long user;
+    Integer role;
 }

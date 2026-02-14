@@ -289,7 +289,7 @@ CREATE TABLE room_type_images (
 --   icon: Tên icon (font-awesome hoặc custom)
 --   category: Phân loại tiện nghi
 CREATE TABLE amenities (
-                           amenity_id INT AUTO_INCREMENT PRIMARY KEY,
+                           amenity_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                            name VARCHAR(120) NOT NULL,
                            description VARCHAR(255) DEFAULT NULL,
                            icon VARCHAR(100) DEFAULT NULL,
@@ -303,7 +303,7 @@ CREATE TABLE amenities (
 -- Bảng ROOM_TYPE_AMENITIES: Liên kết loại phòng và tiện nghi
 CREATE TABLE room_type_amenities (
                                      room_type_id BIGINT NOT NULL,
-                                     amenity_id INT NOT NULL,
+                                     amenity_id BIGINT NOT NULL,
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      PRIMARY KEY (room_type_id, amenity_id),
 
