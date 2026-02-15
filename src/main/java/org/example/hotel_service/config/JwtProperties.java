@@ -14,4 +14,6 @@ import org.springframework.stereotype.Component;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class JwtProperties {
     String signerKey;
+    Integer accessTokenMinutes = 60;
+    Integer refreshTokenDays = 7;
 }
