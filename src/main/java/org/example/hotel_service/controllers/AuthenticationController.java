@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE, makeFinal = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuthenticationController {
     AuthenticationServiceImp authService;
 

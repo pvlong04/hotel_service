@@ -25,6 +25,7 @@ public class RegisterRequest {
     @Size(min = 8, max = 50, message = "Tên đăng nhập phải từ 8-50 ký tự")
     String username;
 
+    @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không hợp lệ")
     String email;
 
