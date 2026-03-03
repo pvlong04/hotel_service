@@ -1,5 +1,6 @@
 package org.example.hotel_service.dtos.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +27,7 @@ public class AuthResponse {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class UserInfo {
         Long userId;

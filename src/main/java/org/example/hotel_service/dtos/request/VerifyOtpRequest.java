@@ -22,6 +22,6 @@ public class VerifyOtpRequest {
     @NotBlank(message = "Email không được để trống")
     String email;
 
-    @NotBlank(message = "Mã OTP không được để trống")
-    String otp;
+//    @NotBlank(message = "Mã OTP không được để trống")
+//    String otp;
 }

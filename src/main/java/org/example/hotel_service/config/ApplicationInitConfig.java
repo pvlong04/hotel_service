@@ -1,6 +1,8 @@
 package org.example.hotel_service.config;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AccessLevel;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +10,7 @@ import org.example.hotel_service.entities.Role;
 import org.example.hotel_service.entities.User;
 import org.example.hotel_service.entities.UserRole;
 import org.example.hotel_service.enums.Roles;
+import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +18,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
-import java.util.Set;
 
 @Configuration
 @RequiredArgsConstructor
@@ -26,10 +28,12 @@ public class ApplicationInitConfig {
     PasswordEncoder passwordEncoder;
 
     @Bean
-    ApplicationRunner applicationRunner(UserRepository repo, org.example.hotel_service.repositories.RoleRepository roleRepository) {
+    ApplicationRunner applicationRunner(UserRepository repo, RoleRepository roleRepository) {
         return args -> {
             Role adminRole = roleRepository.findByName(Roles.ADMIN)
-                    .orElseGet(() -> roleRepository.save(Role.builder().name(Roles.ADMIN).build()));
+                    .orElseGet(() -> roleRepository.save(Role.builder()
+                            .name(Roles.ADMIN)
+                            .build()));
 
             if (!repo.existsByUsername("admin")) {
                 User admin = User.builder()

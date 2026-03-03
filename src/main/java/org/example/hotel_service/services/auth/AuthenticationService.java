@@ -25,9 +25,11 @@ import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.mapper.UserMapper;
 import org.example.hotel_service.repositories.RefreshTokenRepository;
+import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +39,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -48,12 +51,12 @@ public class AuthenticationService implements AuthenticationServiceImp {
     UserRepository userRepository;
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
-    org.example.hotel_service.repositories.RoleRepository roleRepository;
+    RoleRepository roleRepository;
     RefreshTokenRepository refreshTokenRepository;
 
     JwtProperties jwtProperties;
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new ApiException(ErrorCode.USER_EXIT_EMAIL);
@@ -79,7 +82,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .user(user)
                 .role(guestRole)
                 .build();
-        user.setUserRoles(java.util.List.of(userRole));
+        user.setUserRoles(List.of(userRole));
 
         User savedUser = userRepository.save(user);
 
@@ -90,7 +93,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
     }
 
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public AuthResponse login(LoginRequest request, String userAgent, String ipAddress) {
         String identifier = request.getUsernameOrEmail();
         User user = userRepository.findWithProfileAndRolesByUsernameOrEmail(identifier, identifier)
@@ -105,7 +108,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
         return getAuthResponse(userAgent, ipAddress, user);
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request, String userAgent, String ipAddress) {
         String tokenHash = hashToken(request.getRefreshToken());
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
@@ -153,7 +156,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .build();
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public void logout(RefreshTokenRequest request) {
         String tokenHash = hashToken(request.getRefreshToken());
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)

@@ -2,7 +2,9 @@ package org.example.hotel_service.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.api.ApiResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,6 +37,16 @@ public class GlobalExceptionHandle {
         return ResponseEntity.badRequest().body(apiResponse);
     }
 
+    @ExceptionHandler(value = AccessDeniedException.class)
+    ResponseEntity<ApiResponse<?>> handlingAccessDeniedException(AccessDeniedException exception) {
+        log.warn("Access denied: {}", exception.getMessage());
+        ApiResponse<?> apiResponse = ApiResponse.builder()
+                .code(ErrorCode.ACCESS_DENIED.getCode())
+                .message(ErrorCode.ACCESS_DENIED.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(apiResponse);
+    }
+
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     ResponseEntity<ApiResponse<?>> handlingValidationException(MethodArgumentNotValidException exception) {
         Map<String, String> errors = new HashMap<>();
@@ -49,5 +61,6 @@ public class GlobalExceptionHandle {
                 .build();
         return ResponseEntity.badRequest().body(apiResponse);
     }
-
 }
+
+

@@ -19,7 +19,13 @@ public enum ErrorCode {
     UNAUTHENTICATED(1007, "Đăng nhập thất bại"),
     USER_EXITS(1008, "Người dùng đã tồn tại"),
     INVALID_REFRESH_TOKEN(1009, "Refresh token không hợp lệ hoặc đã bị thu hồi"),
-    REFRESH_TOKEN_EXPIRED(1010, "Refresh token đã hết hạn");
+    REFRESH_TOKEN_EXPIRED(1010, "Refresh token đã hết hạn"),
+    ROLE_NOT_FOUND(1011, "Vai trò không tồn tại"),
+    ACCESS_DENIED(1012, "Bạn không có quyền thực hiện thao tác này"),
+    USER_ALREADY_BANNED(1013, "Tài khoản đã bị khóa"),
+    CANNOT_DELETE_SELF(1014, "Không thể xóa tài khoản của chính mình"),
+    USERNAME_ALREADY_EXISTS(1015, "Tên đăng nhập đã tồn tại"),
+    EMAIL_ALREADY_EXISTS(1016, "Email đã tồn tại");
 
     int code;
     String message;

@@ -3,6 +3,7 @@ package org.example.hotel_service.controllers;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.api.ApiResponse;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationController {
     AuthenticationServiceImp authService;
