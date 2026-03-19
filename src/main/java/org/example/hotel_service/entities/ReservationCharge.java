@@ -4,9 +4,14 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
+import org.example.hotel_service.enums.ChargeType;
 
 import java.time.LocalDateTime;
 
+/**
+ * Phụ phí phát sinh trong quá trình lưu trú.
+ * Ví dụ: minibar, giặt đồ, phí hủy muộn, giường phụ, hư hỏng...
+ */
 @Entity
 @Table(name = "reservation_charges")
 @Getter
@@ -26,12 +31,23 @@ public class ReservationCharge {
     @JoinColumn(name = "reservation_id", nullable = false)
     Reservation reservation;
 
-    @Column(name = "description")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "charge_type", nullable = false)
+    @Builder.Default
+    ChargeType chargeType = ChargeType.OTHER;
+
+    @Column(name = "description", length = 500)
     String description;
 
+    /** Số tiền phụ phí (VND) */
     @Column(name = "amount", nullable = false)
     @Builder.Default
-    Integer amount = 0;
+    Long amount = 0L;
+
+    /** Nhân viên ghi nhận phụ phí */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    User createdBy;
 
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;
@@ -39,8 +55,7 @@ public class ReservationCharge {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (amount == null) {
-            amount = 0;
-        }
+        if (chargeType == null) chargeType = ChargeType.OTHER;
+        if (amount == null) amount = 0L;
     }
 }

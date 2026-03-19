@@ -7,8 +7,8 @@ import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.UserStatus;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -53,7 +53,7 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    List<UserRole> userRoles = new ArrayList<>();
+    Set<UserRole> userRoles = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

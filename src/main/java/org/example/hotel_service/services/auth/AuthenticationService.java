@@ -39,8 +39,11 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
-import java.util.List;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -82,7 +85,9 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .user(user)
                 .role(guestRole)
                 .build();
-        user.setUserRoles(List.of(userRole));
+        Set<UserRole> userRoles = new HashSet<>();
+        userRoles.add(userRole);
+        user.setUserRoles(userRoles);
 
         User savedUser = userRepository.save(user);
 
@@ -136,15 +141,14 @@ public class AuthenticationService implements AuthenticationServiceImp {
     }
 
     private AuthResponse getAuthResponse(User user, String accessToken, String refreshToken) {
+        Set<String> roles = extractRoleNames(user);
         AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
                 .userId(user.getUserId())
+                .username(user.getUsername())
                 .email(user.getEmail())
                 .fullName(user.getProfile() != null ? user.getProfile().getFullName() : null)
                 .avatarUrl(user.getProfile() != null ? user.getProfile().getAvatarUrl() : null)
-                .role(user.getUserRoles() != null && !user.getUserRoles().isEmpty()
-                        && user.getUserRoles().get(0).getRole() != null
-                        ? String.valueOf(user.getUserRoles().get(0).getRole().getName())
-                        : null)
+                .roles(roles)
                 .build();
 
         return AuthResponse.builder()
@@ -170,6 +174,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
 
     private String generateAccessToken(User user) {
         JWSHeader jweHeader = new JWSHeader(JWSAlgorithm.HS512);
+        Set<String> roles = extractRoleNames(user);
 
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getUsername())
@@ -180,10 +185,9 @@ public class AuthenticationService implements AuthenticationServiceImp {
                         Instant.now().plus(jwtProperties.getAccessTokenMinutes(), ChronoUnit.MINUTES).toEpochMilli()))
                 .claim("nonce", generateTokenNonce())
                 .claim("userId", user.getUserId())
-                .claim("role", user.getUserRoles() != null && !user.getUserRoles().isEmpty()
-                        && user.getUserRoles().get(0).getRole() != null
-                        ? String.valueOf(user.getUserRoles().get(0).getRole().getName())
-                        : null)
+                .claim("roles", roles)
+                // Keep legacy single role claim for backward compatibility.
+                .claim("role", resolvePrimaryRole(roles))
                 .build();
 
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
@@ -234,5 +238,28 @@ public class AuthenticationService implements AuthenticationServiceImp {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Set<String> extractRoleNames(User user) {
+        if (user.getUserRoles() == null || user.getUserRoles().isEmpty()) {
+            return Set.of();
+        }
+        return user.getUserRoles().stream()
+                .filter(userRole -> userRole.getRole() != null && userRole.getRole().getName() != null)
+                .map(userRole -> userRole.getRole().getName().name())
+                .collect(Collectors.toSet());
+    }
+
+    private String resolvePrimaryRole(Set<String> roles) {
+        return roles.stream()
+                .min(Comparator.comparingInt(this::rolePriority))
+                .orElse(null);
+    }
+
+    private int rolePriority(String role) {
+        if (Roles.ADMIN.name().equals(role)) return 1;
+        if (Roles.STAFF.name().equals(role)) return 2;
+        if (Roles.GUEST.name().equals(role)) return 3;
+        return Integer.MAX_VALUE;
     }
 }

@@ -1,11 +1,9 @@
 package org.example.hotel_service.dtos.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AccessLevel;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.time.LocalDate;
 
 /**
  * DTO phản hồi tạo đặt phòng
@@ -18,8 +16,15 @@ import lombok.experimental.FieldDefaults;
 public class ReservationCreatedResponse {
     Long reservationId;
     String reservationCode;
-    Integer totalAmount;
     String status;
-    String paymentUrl; // URL thanh toán (nếu có)
+
+    LocalDate checkInDate;
+    LocalDate checkOutDate;
+    Integer nightsCount;
+
+    Long totalAmount;
+    Long paidAmount;
+
+    String paymentUrl;
     String message;
 }

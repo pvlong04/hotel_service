@@ -25,7 +25,13 @@ public enum ErrorCode {
     USER_ALREADY_BANNED(1013, "Tài khoản đã bị khóa"),
     CANNOT_DELETE_SELF(1014, "Không thể xóa tài khoản của chính mình"),
     USERNAME_ALREADY_EXISTS(1015, "Tên đăng nhập đã tồn tại"),
-    EMAIL_ALREADY_EXISTS(1016, "Email đã tồn tại");
+    EMAIL_ALREADY_EXISTS(1016, "Email đã tồn tại"),
+    HOTEL_NOT_FOUND(1017, "Không tìm thấy khách sạn"),
+    ROOM_TYPE_NOT_FOUND(1018, "Không tìm thấy loại phòng"),
+    FLOOR_NOT_FOUND(1019, "Không tìm thấy tầng"),
+    ROOM_NOT_FOUND(1020, "Không tìm thấy phòng"),
+    ROOM_ALREADY_EXISTS(1021, "Số phòng đã tồn tại trong khách sạn"),
+    INVALID_DATE_RANGE(1022, "Khoảng ngày không hợp lệ");
 
     int code;
     String message;

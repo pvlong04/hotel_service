@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
+import org.example.hotel_service.enums.Gender;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,14 +34,26 @@ public class Profile {
     @Column(name = "phone", unique = true, length = 30)
     String phone;
 
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url", length = 500)
     String avatarUrl;
 
-    @Column(name = "address")
+    @Column(name = "address", length = 500)
     String address;
 
     @Column(name = "dob")
     LocalDate dob;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 10)
+    Gender gender;
+
+    /** Số CCCD / Hộ chiếu – dùng khi check-in theo quy định khách sạn */
+    @Column(name = "national_id", length = 50)
+    String nationalId;
+
+    /** Quốc tịch */
+    @Column(name = "nationality", length = 100)
+    String nationality;
 
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;

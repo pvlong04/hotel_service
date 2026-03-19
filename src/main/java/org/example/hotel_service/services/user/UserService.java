@@ -27,7 +27,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -42,9 +45,25 @@ public class UserService implements UserServiceImp {
 
     // ─────────────────── helpers ───────────────────
 
-    private String extractRole(Jwt jwt) {
+    private Set<String> extractRoles(Jwt jwt) {
+        Object rolesObj = jwt.getClaims().get("roles");
+        if (rolesObj instanceof Iterable<?> iterable) {
+            Set<String> roles = new HashSet<>();
+            for (Object item : iterable) {
+                if (item != null) {
+                    roles.add(item.toString());
+                }
+            }
+            if (!roles.isEmpty()) {
+                return roles;
+            }
+        }
+
         Object roleObj = jwt.getClaims().get("role");
-        return roleObj != null ? roleObj.toString() : "";
+        if (roleObj != null) {
+            return Set.of(roleObj.toString());
+        }
+        return Set.of();
     }
 
     private Long extractUserId(Jwt jwt) {
@@ -53,20 +72,16 @@ public class UserService implements UserServiceImp {
         return null;
     }
 
-    private boolean isAdmin(Jwt jwt) {
-        return Roles.ADMIN.name().equals(extractRole(jwt));
-    }
-
-    private boolean isStaff(Jwt jwt) {
-        return Roles.STAFF.name().equals(extractRole(jwt));
+    private boolean hasRole(Jwt jwt, Roles role) {
+        return extractRoles(jwt).contains(role.name());
     }
 
     private UserResponse toResponse(User user) {
-        List<String> roles = user.getUserRoles() == null ? List.of()
+        Set<String> roles = user.getUserRoles() == null ? Set.of()
                 : user.getUserRoles().stream()
                 .filter(ur -> ur.getRole() != null)
                 .map(ur -> ur.getRole().getName().name())
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
         return UserResponse.builder()
                 .userId(user.getUserId())
@@ -81,8 +96,33 @@ public class UserService implements UserServiceImp {
                 .avatarUrl(user.getProfile() != null ? user.getProfile().getAvatarUrl() : null)
                 .address(user.getProfile() != null ? user.getProfile().getAddress() : null)
                 .dob(user.getProfile() != null ? user.getProfile().getDob() : null)
+                .gender(user.getProfile() != null && user.getProfile().getGender() != null
+                        ? user.getProfile().getGender().name()
+                        : null)
+                .nationalId(user.getProfile() != null ? user.getProfile().getNationalId() : null)
+                .nationality(user.getProfile() != null ? user.getProfile().getNationality() : null)
                 .roles(roles)
                 .build();
+    }
+
+    private Set<UserRole> buildUserRoles(Set<Roles> requestRoles, User user) {
+        if (requestRoles == null || requestRoles.isEmpty()) {
+            throw new ApiException(ErrorCode.ROLE_NOT_FOUND);
+        }
+
+        Set<UserRole> userRoles = requestRoles.stream()
+                .filter(Objects::nonNull)
+                .map(roleName -> {
+                    Role role = roleRepository.findByName(roleName)
+                            .orElseGet(() -> roleRepository.save(Role.builder().name(roleName).build()));
+                    return UserRole.builder().user(user).role(role).build();
+                })
+                .collect(Collectors.toSet());
+
+        if (userRoles.isEmpty()) {
+            throw new ApiException(ErrorCode.ROLE_NOT_FOUND);
+        }
+        return userRoles;
     }
 
     // ─────────────────── CRUD ───────────────────
@@ -90,7 +130,7 @@ public class UserService implements UserServiceImp {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> getAllUsers(String keyword, UserStatus status, int page, int size, Jwt jwt) {
-        if (!isAdmin(jwt) && !isStaff(jwt)) {
+        if (!hasRole(jwt, Roles.ADMIN) && !hasRole(jwt, Roles.STAFF)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }
 
@@ -120,7 +160,7 @@ public class UserService implements UserServiceImp {
         Long requesterId = extractUserId(jwt);
 
         // GUEST chỉ được xem chính mình
-        if (!isAdmin(jwt) && !isStaff(jwt)) {
+        if (!hasRole(jwt, Roles.ADMIN) && !hasRole(jwt, Roles.STAFF)) {
             if (!userId.equals(requesterId)) {
                 throw new ApiException(ErrorCode.ACCESS_DENIED);
             }
@@ -144,7 +184,7 @@ public class UserService implements UserServiceImp {
     @Override
     @Transactional
     public UserResponse createUser(CreateUserRequest request, Jwt jwt) {
-        if (!isAdmin(jwt)) {
+        if (!hasRole(jwt, Roles.ADMIN)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }
 
@@ -154,9 +194,6 @@ public class UserService implements UserServiceImp {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new ApiException(ErrorCode.USERNAME_ALREADY_EXISTS);
         }
-
-        Role role = roleRepository.findByName(request.getRole())
-                .orElseGet(() -> roleRepository.save(Role.builder().name(request.getRole()).build()));
 
         User user = User.builder()
                 .username(request.getUsername())
@@ -171,11 +208,13 @@ public class UserService implements UserServiceImp {
                 .phone(request.getPhone())
                 .address(request.getAddress())
                 .dob(request.getDob())
+                .gender(request.getGender())
+                .nationalId(request.getNationalId())
+                .nationality(request.getNationality())
                 .build();
         user.setProfile(profile);
 
-        UserRole userRole = UserRole.builder().user(user).role(role).build();
-        user.setUserRoles(List.of(userRole));
+        user.setUserRoles(buildUserRoles(request.getRoles(), user));
 
         User saved = userRepository.save(user);
         log.info("ADMIN {} created new user: {}", extractUserId(jwt), saved.getUserId());
@@ -186,7 +225,7 @@ public class UserService implements UserServiceImp {
     @Transactional
     public UserResponse updateUser(Long userId, UpdateUserRequest request, Jwt jwt) {
         Long requesterId = extractUserId(jwt);
-        boolean admin = isAdmin(jwt);
+        boolean admin = hasRole(jwt, Roles.ADMIN);
 
         // STAFF/GUEST chỉ được cập nhật chính mình
         if (!admin && !userId.equals(requesterId)) {
@@ -219,15 +258,15 @@ public class UserService implements UserServiceImp {
             if (request.getStatus() != null) {
                 user.setStatus(request.getStatus());
             }
-//            if (request.getRole() != null) {
-//                Role newRole = roleRepository.findByName(request.getRole())
-//                        .orElseGet(() -> roleRepository.save(Role.builder().name(request.getRole()).build()));
-//                // Xóa role cũ, gán role mới
-//                user.getUserRoles().clear();
-//                UserRole userRole = UserRole.builder().user(user).role(newRole).build();
-//                user.getUserRoles().add(userRole);
-//            }
+            if (request.getRoles() != null && !request.getRoles().isEmpty()) {
+                user.getUserRoles().clear();
+                user.getUserRoles().addAll(buildUserRoles(request.getRoles(), user));
+            }
         }
+
+        if (request.getGender() != null) profile.setGender(request.getGender());
+        if (request.getNationalId() != null) profile.setNationalId(request.getNationalId());
+        if (request.getNationality() != null) profile.setNationality(request.getNationality());
 
         User saved = userRepository.save(user);
         log.info("User {} updated by requester {}", userId, requesterId);
@@ -237,7 +276,7 @@ public class UserService implements UserServiceImp {
     @Override
     @Transactional
     public void deleteUser(Long userId, Jwt jwt) {
-        if (!isAdmin(jwt)) {
+        if (!hasRole(jwt, Roles.ADMIN)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }
 
@@ -256,7 +295,7 @@ public class UserService implements UserServiceImp {
     @Override
     @Transactional
     public UserResponse updateUserStatus(Long userId, UserStatus status, Jwt jwt) {
-        if (!isAdmin(jwt)) {
+        if (!hasRole(jwt, Roles.ADMIN)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }
 

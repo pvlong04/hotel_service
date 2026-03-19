@@ -6,9 +6,11 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.example.hotel_service.enums.Gender;
 import org.example.hotel_service.enums.Roles;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 /**
  * DTO yêu cầu tạo mới người dùng (chỉ ADMIN)
@@ -39,12 +41,19 @@ public class CreateUserRequest {
     @Size(max = 30, message = "Số điện thoại không quá 30 ký tự")
     String phone;
 
-    @Size(max = 255, message = "Địa chỉ không quá 255 ký tự")
+    @Size(max = 500, message = "Địa chỉ không quá 500 ký tự")
     String address;
 
     LocalDate dob;
+    Gender gender;
+
+    @Size(max = 50, message = "Số giấy tờ không quá 50 ký tự")
+    String nationalId;
+
+    @Size(max = 100, message = "Quốc tịch không quá 100 ký tự")
+    String nationality;
 
     @NotNull(message = "Vai trò không được để trống")
-    Roles role;
+    @Size(min = 1, message = "Phải có ít nhất 1 vai trò")
+    Set<Roles> roles;
 }
-

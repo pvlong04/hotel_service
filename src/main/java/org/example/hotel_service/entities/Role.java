@@ -7,8 +7,8 @@ import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.Roles;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "roles")
@@ -35,10 +35,9 @@ public class Role {
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;
 
-    // Relationships
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    List<UserRole> userRoles = new ArrayList<>();
+    Set<UserRole> userRoles = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

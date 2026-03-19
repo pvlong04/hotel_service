@@ -1,20 +1,13 @@
 package org.example.hotel_service.dtos.request;
 
+import jakarta.validation.constraints.*;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.RoomStatus;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-
 /**
- * DTO yêu cầu tạo/cập nhật phòng
+ * Tạo / cập nhật phòng vật lý.
+ * ADMIN tạo, ADMIN + STAFF cập nhật.
  */
 @Data
 @Builder

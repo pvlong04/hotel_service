@@ -6,7 +6,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
 /**
  * DTO phản hồi thông tin người dùng
@@ -33,8 +33,10 @@ public class UserResponse {
     String avatarUrl;
     String address;
     LocalDate dob;
+    String gender;
+    String nationalId;
+    String nationality;
 
     // Roles
-    List<String> roles;
+    Set<String> roles;
 }
-

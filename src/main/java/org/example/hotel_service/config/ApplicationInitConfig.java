@@ -1,8 +1,6 @@
 package org.example.hotel_service.config;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AccessLevel;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +8,7 @@ import org.example.hotel_service.entities.Role;
 import org.example.hotel_service.entities.User;
 import org.example.hotel_service.entities.UserRole;
 import org.example.hotel_service.enums.Roles;
+import org.example.hotel_service.enums.UserStatus;
 import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.springframework.boot.ApplicationRunner;
@@ -17,7 +16,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Configuration
 @RequiredArgsConstructor
@@ -38,7 +38,9 @@ public class ApplicationInitConfig {
             if (!repo.existsByUsername("admin")) {
                 User admin = User.builder()
                         .username("admin")
+                        .email("admin@hotel.local")
                         .passwordHash(passwordEncoder.encode("admin"))
+                        .status(UserStatus.ACTIVE)
                         .build();
 
                 UserRole adminUserRole = UserRole.builder()
@@ -46,10 +48,12 @@ public class ApplicationInitConfig {
                         .role(adminRole)
                         .build();
 
-                admin.setUserRoles(List.of(adminUserRole));
+                Set<UserRole> roles = new HashSet<>();
+                roles.add(adminUserRole);
+                admin.setUserRoles(roles);
                 repo.save(admin);
             }
         };
     }
-
 }
+

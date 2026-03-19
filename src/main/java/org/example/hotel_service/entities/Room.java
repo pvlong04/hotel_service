@@ -10,6 +10,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Phòng vật lý trong khách sạn.
+ * Mỗi phòng thuộc một loại phòng (RoomType) và một tầng (Floor).
+ * Ảnh gallery riêng của phòng (nếu có, thường dùng ảnh của RoomType).
+ */
 @Entity
 @Table(name = "rooms", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"hotel_id", "room_number"})
@@ -31,6 +36,7 @@ public class Room {
     @JoinColumn(name = "hotel_id", nullable = false)
     Hotel hotel;
 
+    /** Số phòng hiển thị (101, 201A, P3...) */
     @Column(name = "room_number", nullable = false, length = 50)
     String roomNumber;
 
@@ -47,13 +53,17 @@ public class Room {
     @Builder.Default
     RoomStatus status = RoomStatus.AVAILABLE;
 
-    @Column(name = "note")
+    /** Ghi chú nội bộ về phòng (ví dụ: view biển, gần thang máy) */
+    @Column(name = "note", length = 500)
     String note;
 
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;
 
-    // Relationships
+    @Column(name = "updated_at")
+    LocalDateTime updatedAt;
+
+    // Relationships – ảnh riêng của phòng (tùy chọn, thường kế thừa từ RoomType)
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     List<RoomImage> images = new ArrayList<>();
@@ -61,8 +71,12 @@ public class Room {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = RoomStatus.AVAILABLE;
-        }
+        updatedAt = LocalDateTime.now();
+        if (status == null) status = RoomStatus.AVAILABLE;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

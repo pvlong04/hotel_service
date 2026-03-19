@@ -28,7 +28,7 @@ public class CreatePaymentRequest {
 
     @NotNull(message = "Số tiền không được để trống")
     @Min(value = 1, message = "Số tiền phải lớn hơn 0")
-    Integer amount;
+    Long amount;
 
     @NotNull(message = "Phương thức thanh toán không được để trống")
     PaymentMethod method;
@@ -36,6 +36,9 @@ public class CreatePaymentRequest {
     @Size(max = 100, message = "Provider không quá 100 ký tự")
     String provider;
 
+    @Size(max = 150, message = "Mã giao dịch không quá 150 ký tự")
+    String providerTransId;
+
     @Size(max = 500, message = "Ghi chú không quá 500 ký tự")
-    String notes;
+    String note;
 }

@@ -14,10 +14,13 @@ import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.spec.SecretKeySpec;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -33,7 +36,7 @@ public class SecurityConfig {
     private final JwtProperties jwtProperties;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) {
         httpSecurity.authorizeHttpRequests(auth -> auth
 
                 // Auth endpoints - public
@@ -42,8 +45,12 @@ public class SecurityConfig {
                 // GET /users/me - tất cả role đã đăng nhập
                 .requestMatchers(HttpMethod.GET, "/users/me").authenticated()
 
-                // GET /users, GET /users/{id} - ADMIN hoặc STAFF
-                .requestMatchers(HttpMethod.GET, "/users", "/users/{userId}")
+                // GET /users - ADMIN hoặc STAFF
+                .requestMatchers(HttpMethod.GET, "/users")
+                .hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
+
+                // GET /users/{id} - ADMIN/STAFF xem tất cả, GUEST xem chính mình (service check ownership)
+                .requestMatchers(HttpMethod.GET, "/users/{userId}")
                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF", "ROLE_GUEST")
 
                 // POST /users - chỉ ADMIN
@@ -62,6 +69,22 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/users/{userId}/status")
                 .hasAuthority("ROLE_ADMIN")
 
+                // Rooms read endpoints - public
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/rooms",
+                        "/api/v1/rooms/{id}",
+                        "/api/v1/rooms/available",
+                        "/api/v1/rooms/{id}/images")
+                .permitAll()
+
+                // Rooms write endpoints
+                .requestMatchers(HttpMethod.POST, "/api/v1/rooms")
+                .hasAuthority("ROLE_ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/v1/rooms/{id}")
+                .hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/rooms/{id}")
+                .hasAuthority("ROLE_ADMIN")
+
                 .anyRequest().authenticated()
         );
 
@@ -75,25 +98,27 @@ public class SecurityConfig {
         return httpSecurity.build();
     }
 
-    /**
-     * Chuyển claim "role" trong JWT thành GrantedAuthority có prefix "ROLE_"
-     * VD: "ADMIN" → "ROLE_ADMIN"
-     */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        grantedAuthoritiesConverter.setAuthoritiesClaimName("role");
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
         jwtConverter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            // claim "role" là string đơn, cần wrap thành collection
+            Object rolesObj = jwt.getClaims().get("roles");
+            if (rolesObj instanceof Collection<?> roleCollection) {
+                List<org.springframework.security.core.authority.SimpleGrantedAuthority> authorities = new ArrayList<>();
+                for (Object role : roleCollection) {
+                    if (role != null) {
+                        authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + role));
+                    }
+                }
+                if (!authorities.isEmpty()) {
+                    return authorities;
+                }
+            }
+
+            // Fallback for legacy token that still uses single "role" claim.
             Object roleObj = jwt.getClaims().get("role");
-            if (roleObj == null) return java.util.Collections.emptyList();
-            String roleValue = roleObj.toString();
-            return java.util.List.of(
-                    new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleValue)
-            );
+            if (roleObj == null) return Collections.emptyList();
+            return List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleObj));
         });
         return jwtConverter;
     }

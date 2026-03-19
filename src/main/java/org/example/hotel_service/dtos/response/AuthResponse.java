@@ -1,12 +1,10 @@
 package org.example.hotel_service.dtos.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AccessLevel;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.util.Set;
 
 /**
  * DTO phản hồi xác thực (login/register)
@@ -31,9 +29,10 @@ public class AuthResponse {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class UserInfo {
         Long userId;
+        String username;
         String email;
         String fullName;
         String avatarUrl;
-        String role;
+        Set<String> roles;
     }
 }

@@ -1,0 +1,201 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}}
+\fs22
+ \b I. NGHIEP VU HE THONG KHACH SAN\b0\par
+\par
+\b 1. Muc tieu he thong\b0\par
+He thong Hotel Service duoc xay dung de quan ly mot khach san theo nghiep vu co ban den nang cao: quan ly tai khoan nguoi dung, phan quyen, quan ly phong, quan ly loai phong, quan ly tang, quan ly dat phong, thanh toan, va cap nhat trang thai van hanh.\par
+\par
+\b 2. Vai tro nghiep vu\b0\par
+- \b ADMIN\b0: quan tri toan bo he thong, tao/sua/xoa user, tao/sua/xoa room, quan ly trang thai, quan ly reservation va report.\par
+- \b STAFF\b0: van hanh nghiep vu hang ngay, xem danh sach, cap nhat phong, xac nhan yeu cau, check-in/check-out, ho tro khach.\par
+- \b GUEST\b0: dang ky tai khoan, dang nhap, cap nhat ho so ca nhan, xem phong trong, tao don dat phong, xem lich su cua minh.\par
+\par
+\b 3. Luong nghiep vu chuan cua he thong\b0\par
+- Khach dang ky tai khoan.\par
+- He thong tu gan role GUEST mac dinh.\par
+- ADMIN/STAFF dang nhap va quan ly phong, loai phong, tang.\par
+- GUEST xem danh sach phong, phong trong, va tao reservation.\par
+- STAFF xac nhan don, check-in, check-out, ho tro khach.\par
+- He thong luu lich su tinh trang phong, thanh toan va charge phat sinh.\par
+\par
+\b 4. Mo hinh nghiep vu hien tai da phu hop\b0\par
+- \b User - Role\b0: dung bang trung gian user_roles la dung huong vi 1 user co the co nhieu role.\par
+- \b Hotel - Floor - RoomType - Room\b0: phan tang nghiep vu ro rang, de mo rong.\par
+- \b RoomImage/RoomTypeImage/HotelImage\b0: tach anh theo doi tuong, hop ly va de quan ly gallery.\par
+- \b Reservation/ReservationItem/Payment/Charge\b0: co du khung de xu ly booking thuc te.\par
+\par
+\b 5. Danh gia nghiep vu hien tai\b0\par
+- Huong thiet ke co ban la dung cho website quan ly khach san.\par
+- Da co tieu chuan phan quyen ADMIN/STAFF/GUEST ro rang.\par
+- Room domain da co du thong tin de hoat dong co ban: hotel, floor, room type, status, note, images.\par
+- Reservation da co thong tin co ban de dat phong theo ngay va so dem.\par
+- Tuy nhien, can thong nhat 1 model dat phong chinh va bo model lech nghiep vu nhu Booking cu.\par
+\par
+\b II. PHAN TICH CHI TIET TUNG DONG CODE CUA CAC FILE LOI COT\b0\par
+\par
+\b 1. `src/main/java/org/example/hotel_service/config/SecurityConfig.java`\b0\par
+- Dong 1-18: khai bao package va import cac thanh phan bao mat, JWT, security filter chain.\par
+- Dong 22-26: khai bao class cau hinh security, bat web security va method security.\par
+- Dong 28-31: dinh nghia cac endpoint public cho auth.\par
+- Dong 33: inject `JwtProperties` de doc secret key va thoi han token.\par
+- Dong 35-75: cau hinh authorization theo matcher. Day la noi quyet dinh ai duoc goi API nao.\par
+- Dong 42-63: cap quyen cho `/users` va `/users/{userId}` theo role.\par
+- Dong 68-72: cau hinh resource server dung JWT decoder va converter.\par
+- Dong 74-75: tat CSRF vi day la REST API dung bearer token.\par
+- Dong 82-99: chuyen claim `roles`/`role` trong JWT thanh `GrantedAuthority`. Day la phan rat quan trong de `hasAuthority('ROLE_ADMIN')` hoat dong dung.\par
+- Dong 101-108: tao JWT decoder voi HS512 va secret key.\par
+- Dong 110-113: khai bao `PasswordEncoder` de bam mat khau.\par
+\par
+\b 2. `src/main/java/org/example/hotel_service/services/auth/AuthenticationService.java`\b0\par
+- Dong 1-49: khai bao package, import JOSE/JWT, repository, mapper, password encoder, config.\par
+- Dong 60-93: `register()` kiem tra trung email/username, tao user moi, bam mat khau, gan role GUEST, tao profile, luu user, tra ve access token + refresh token.\par
+- Dong 71-72: neu role GUEST chua co thi tao moi. Day la on, nhung ve lau dai nen seed san trong DB se tot hon.\par
+- Dong 81-85: tao `UserRole` va gan vao user.\par
+- Dong 97-109: `login()` tim user, kiem tra password, cap nhat `lastLoginAt`, tra auth response.\par
+- Dong 112-129: `refreshToken()` hash token gui len, tim token luu DB, kiem tra revoked/expired, sau do cap token moi.\par
+- Dong 131-156: tao object `AuthResponse` gom access token, refresh token va thong tin user.\par
+- Dong 144-147: truoc day chi lay role dau tien; hien da chuyen sang `roles` set de dung nghiep vu da role.\par
+- Dong 159-169: `logout()` chi can revoke refresh token.\par
+- Dong 171-200: `generateAccessToken()` tao JWT co subject, issuer, jti, issue time, expiration, nonce, userId va roles.\par
+- Dong 202-215: `issueRefreshToken()` tao refresh token random, hash, luu DB.\par
+- Dong 217-236: tao nonce va hash token SHA-256.\par
+- Dong 238-258: helper trich roles va chon role chinh.\par
+\par
+\b 3. `src/main/java/org/example/hotel_service/services/user/UserService.java`\b0\par
+- Dong 1-41: khai bao package, import DTO, entity, repo, encoder, JWT.\par
+- Dong 45-63: helper trich roles tu JWT va kiem tra quyen.\par
+- Dong 64-87: map `User` sang `UserResponse`, gom profile + roles.\par
+- Dong 89-115: `getAllUsers()` chi ADMIN/STAFF duoc xem danh sach co phan trang.\par
+- Dong 117-133: `getUserById()` cho ADMIN/STAFF xem bat ky, GUEST chi xem chinh minh.\par
+- Dong 135-142: `getMyProfile()` lay thong tin nguoi dung hien tai.\par
+- Dong 144-184: `createUser()` chi ADMIN, kiem tra trung username/email, tao profile, gan nhieu role neu can.\par
+- Dong 185-235: `updateUser()` phan tach giua admin va user thuong; ADMIN co the doi email/status/roles, nguoi dung thuong chi sua profile cua minh.\par
+- Dong 237-254: `deleteUser()` chi ADMIN va khong duoc tu xoa chinh minh.\par
+- Dong 256-270: `updateUserStatus()` cho ADMIN khoa/mo khoa tai khoan.\par
+\par
+\b 4. `src/main/java/org/example/hotel_service/controllers/RoomController.java`\b0\par
+- Dong 1-18: khai bao REST controller cho `/api/v1/rooms`.\par
+- Dong 20-27: inject service.\par
+- Dong 29-36: `GET /api/v1/rooms` lay danh sach phong co phan trang.\par
+- Dong 38-41: `GET /api/v1/rooms/{id}` lay chi tiet 1 phong.\par
+- Dong 43-51: `POST /api/v1/rooms` tao phong moi, tra ve 201 Created.\par
+- Dong 53-61: `PUT /api/v1/rooms/{id}` cap nhat phong.\par
+- Dong 63-68: `DELETE /api/v1/rooms/{id}` xoa phong.\par
+- Dong 70-78: `GET /api/v1/rooms/available` tim phong trong theo ngay nhan va tra.\par
+- Dong 80-83: `GET /api/v1/rooms/{id}/images` lay danh sach anh phong.\par
+\par
+\b 5. `src/main/java/org/example/hotel_service/services/room/RoomService.java`\b0\par
+- Dong 1-34: khai bao service, inject repository lien quan den hotel/floor/room type.\par
+- Dong 46-64: `getRooms()` xu ly phan trang va loc theo hotel/status.\par
+- Dong 66-71: `getRoomById()` lay phong theo id va bao loi neu khong co.\par
+- Dong 73-105: `createRoom()` kiem tra quyen ADMIN, valid hotel, room type, floor, trung room number, sau do luu room.\par
+- Dong 107-137: `updateRoom()` kiem tra quyen ADMIN/STAFF, cap nhat thong tin room, dam bao khong trung room number.\par
+- Dong 139-145: `deleteRoom()` chi ADMIN.\par
+- Dong 147-154: `getAvailableRooms()` validate khoang ngay, roi query phong trong.\par
+- Dong 156-161: `getRoomImages()` tra danh sach anh phong.\par
+- Dong 163-178: `resolveFloor()` va `validateRoomTypeBelongsToHotel()` dam bao du lieu thuoc cung hotel.\par
+- Dong 180-197: doc roles tu JWT va kiem tra role duoc phep.\par
+- Dong 199-245: map entity sang response, gom hotel/roomType/floor/images.\par
+\par
+\b 6. `src/main/java/org/example/hotel_service/repositories/RoomRepository.java`\b0\par
+- Dong 1-16: khai bao repository.\par
+- Dong 18-21: `findWithDetailsByRoomId()` load room kem quan he de tra response.\par
+- Dong 23-27: tim phong theo hotel va theo hotel + status.\par
+- Dong 29-31: check room number da ton tai hay chua.\par
+- Dong 33-44: query phong trong theo ngay, loai tru cac reservation dang co hieu luc.\par
+\par
+\b 7. `src/main/java/org/example/hotel_service/config/ApplicationInitConfig.java`\b0\par
+- Dong 1-18: cau hinh seed du lieu ban dau.\par
+- Dong 30-53: tao ADMIN mac dinh neu chua co, gan email, status ACTIVE, role ADMIN.\par
+- Day la du lieu khoi tao phuc vu test/dev, sau nay nen doi sang migration seed ro rang hon.\par
+\par
+\b 8. `src/main/java/org/example/hotel_service/entities/User.java` va `Role.java`\b0\par
+- `User`: luu username, email, password hash, status, last login, timestamps, profile va set userRoles.\par
+- `Role`: luu ten role theo enum `Roles`, mo ta, timestamps, va set userRoles.\par
+- `Set<UserRole>` la dung nghiep vu hon `List`, vi mot user co the co nhieu role va can tranh trung lap.\par
+\par
+\b 9. `src/main/java/org/example/hotel_service/entities/Room.java`, `Hotel.java`, `Floor.java`, `RoomType.java`\b0\par
+- `Hotel`: la cap tong quan cua resort/khach san, co danh sach floor, roomType, room, images.\par
+- `Floor`: gom cac room trong cung hotel theo tang.\par
+- `RoomType`: dinh nghia hang phong, gia, suc chua, tien nghi, gallery, amenities.\par
+- `Room`: la phong vat ly, bat buoc co hotel + roomType, co floor va status.\par
+\par
+\b 10. Nhan xet ve do ro rang cua code\b0\par
+- O auth/user, code da kha ro va co the mo rong.\par
+- O room, service da goi duoc nghiep vu co ban.\par
+- O reservation/booking, can thong nhat chuan ten va lifecycle de tranh trung lap.\par
+\par
+\b III. HUONG PHAT TRIEN, API DA LAM VA API CAN LAM\b0\par
+\par
+\b 1. API da lam hoan chinh\b0\par
+\b Auth\b0\par
+- POST `/auth/register`\par
+- POST `/auth/login`\par
+- POST `/auth/refresh`\par
+- POST `/auth/logout`\par
+\par
+\b Users\b0\par
+- GET `/users`\par
+- GET `/users/me`\par
+- GET `/users/{userId}`\par
+- POST `/users`\par
+- PUT `/users/{userId}`\par
+- DELETE `/users/{userId}`\par
+- PATCH `/users/{userId}/status`\par
+\par
+\b Rooms\b0\par
+- GET `/api/v1/rooms`\par
+- GET `/api/v1/rooms/{id}`\par
+- POST `/api/v1/rooms`\par
+- PUT `/api/v1/rooms/{id}`\par
+- DELETE `/api/v1/rooms/{id}`\par
+- GET `/api/v1/rooms/available`\par
+- GET `/api/v1/rooms/{id}/images`\par
+\par
+\b 2. API can lam tiep de hoan thien he thong\b0\par
+\b P0 - bat buoc lam truoc\b0\par
+- POST `/api/v1/reservations`\par
+- GET `/api/v1/reservations/{id}`\par
+- GET `/api/v1/reservations`\par
+- PATCH `/api/v1/reservations/{id}/confirm`\par
+- PATCH `/api/v1/reservations/{id}/cancel`\par
+- PATCH `/api/v1/reservations/{id}/check-in`\par
+- PATCH `/api/v1/reservations/{id}/check-out`\par
+\par
+\b P1 - sau do\b0\par
+- POST `/api/v1/payments`\par
+- POST `/api/v1/payments/webhook`\par
+- GET `/api/v1/reservations/{id}/payments`\par
+- POST `/api/v1/reservations/{id}/charges`\par
+- GET `/api/v1/reservations/{id}/invoice`\par
+\par
+\b P2 - mo rong he thong\b0\par
+- CRUD `/api/v1/hotels`\par
+- CRUD `/api/v1/floors`\par
+- CRUD `/api/v1/room-types`\par
+- CRUD `/api/v1/amenities`\par
+- CRUD `/api/v1/promotions`\par
+- CRUD `/api/v1/notifications`\par
+- Bao cao dashboard, doanh thu, cong suat phong\par
+\par
+\b 3. Huong phat trien kien truc\b0\par
+- Chot 1 source schema duy nhat: Flyway migration.\par
+- Bo `Booking` neu khong can, chi dung `Reservation/ReservationItem`.\par
+- Tach service layer theo module: auth, user, room, reservation, payment.\par
+- Bo sung test integration cho RBAC va ownership.\par
+- Bo sung swagger/OpenAPI de de ban giao cho frontend.\par
+- Dua secret ra environment variables.\par
+\par
+\b 4. Danh sach cong viec de hoan thien he thong\b0\par
+1. Dong bo va don dep model reservation.\par
+2. Viet reservation service + controller.\par
+3. Viet payment service + webhook.\par
+4. Bo sung floor/hotel/room-type CRUD.\par
+5. Viet test cho role ADMIN/STAFF/GUEST.\par
+6. Hoan thien migration va seed data.\par
+7. Toi uu query va them audit log.\par
+\par
+\b 5. Ket luan\b0\par
+He thong da co nen tang dung cho mot website quan ly khach san. Phan user, auth, role, va room da kha on. Buoc tiep theo quan trong nhat la hoan thien reservation lifecycle, thanh toan, va dong bo schema de he thong san sang dua vao su dung that.\par
+}

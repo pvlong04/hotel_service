@@ -1,22 +1,14 @@
 package org.example.hotel_service.dtos.response;
 
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.example.hotel_service.entities.Amenity;
-import org.example.hotel_service.entities.RoomType;
-import org.example.hotel_service.enums.BedType;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-
 /**
- * DTO phản hồi tìm kiếm phòng trống
+ * DTO phản hồi tìm kiếm phòng trống.
  */
 @Data
 @Builder
@@ -24,6 +16,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomAvailabilityResponse {
+
     Integer hotelId;
     String hotelName;
     LocalDate checkInDate;
@@ -44,19 +37,44 @@ public class RoomAvailabilityResponse {
         Integer capacity;
         Integer maxAdults;
         Integer maxChildren;
-        BedType bedType;
+        String bedType;
+        Integer bedCount;
         BigDecimal roomSize;
 
-        // Giá
-        Integer pricePerNight;
-        Integer totalPrice;
+        Long pricePerNight;
+        Long totalPrice;
 
-        // Số phòng trống
+        Integer totalRooms;
         Integer availableRooms;
 
-        // Hình ảnh và tiện nghi
         String primaryImageUrl;
-        List<RoomType> images;
-        List<Amenity> amenities;
+        List<ImageItem> images;
+        List<AmenityItem> amenities;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ImageItem {
+        Long imageId;
+        String url;
+        String caption;
+        Boolean isPrimary;
+        Integer sortOrder;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AmenityItem {
+        Integer amenityId;
+        String name;
+        String description;
+        String icon;
+        String category;
     }
 }

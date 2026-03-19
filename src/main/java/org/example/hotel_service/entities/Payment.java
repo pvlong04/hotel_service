@@ -9,6 +9,10 @@ import org.example.hotel_service.enums.PaymentStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * Giao dịch thanh toán cho một đơn đặt phòng.
+ * Một đơn có thể có nhiều giao dịch (đặt cọc + thanh toán phần còn lại).
+ */
 @Entity
 @Table(name = "payments")
 @Getter
@@ -25,25 +29,28 @@ public class Payment {
     Long paymentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reservation_id")
+    @JoinColumn(name = "reservation_id", nullable = false)
     Reservation reservation;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guest_id", nullable = false)
     User guest;
 
+    /** Số tiền giao dịch này (VND) */
     @Column(name = "amount", nullable = false)
-    Integer amount;
+    Long amount;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "method", nullable = false)
     @Builder.Default
-    PaymentMethod method = PaymentMethod.ONLINE;
+    PaymentMethod method = PaymentMethod.CASH;
 
+    /** Tên cổng thanh toán (VNPay, Momo, ZaloPay...) */
     @Column(name = "provider", length = 100)
     String provider;
 
-    @Column(name = "provider_trans_id", length = 100)
+    /** Mã giao dịch từ cổng thanh toán */
+    @Column(name = "provider_trans_id", length = 150)
     String providerTransId;
 
     @Enumerated(EnumType.STRING)
@@ -51,20 +58,29 @@ public class Payment {
     @Builder.Default
     PaymentStatus status = PaymentStatus.PENDING;
 
+    /** Ghi chú (nhân viên nhập khi thu tiền mặt) */
+    @Column(name = "note", length = 500)
+    String note;
+
     @Column(name = "paid_at")
     LocalDateTime paidAt;
 
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    LocalDateTime updatedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (method == null) {
-            method = PaymentMethod.ONLINE;
-        }
-        if (status == null) {
-            status = PaymentStatus.PENDING;
-        }
+        updatedAt = LocalDateTime.now();
+        if (method == null) method = PaymentMethod.CASH;
+        if (status == null) status = PaymentStatus.PENDING;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
