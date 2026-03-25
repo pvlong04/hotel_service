@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LakeSide Hotel - Demo Client</title>
+  <title>LakeSide Hotel - Khách sạn ven hồ</title>
   <style>
     :root {
       --bg: #f6f8fc;
@@ -284,7 +284,7 @@
   const resultMeta = document.getElementById('resultMeta');
   const hotelList = document.getElementById('hotelList');
 
-  const defaultImage = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop';
+  const defaultImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='800' viewBox='0 0 1200 800'%3E%3Crect width='1200' height='800' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='42' fill='%236b7280'%3EHotel Image%3C/text%3E%3C/svg%3E";
 
   const today = new Date();
   const toDateInput = (date) => date.toISOString().slice(0, 10);
@@ -310,11 +310,29 @@
     return Number.isFinite(n) ? n : null;
   }
 
+  function isTokenExpired(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return typeof payload.exp === 'number' && (payload.exp * 1000) < Date.now();
+    } catch (error) {
+      return true;
+    }
+  }
+
   async function apiFetch(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (state.token && isTokenExpired(state.token)) {
+      state.token = '';
+      throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+    }
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     const response = await fetch(url, { ...options, headers });
-    const json = await response.json().catch(() => ({}));
+    let json = {};
+    try {
+      json = await response.json();
+    } catch (error) {
+      json = { message: `Phản hồi JSON không hợp lệ (${response.status}): ${error?.message || 'parse error'}` };
+    }
     if (!response.ok) {
       const msg = json?.message || `Request thất bại (${response.status})`;
       throw new Error(msg);
@@ -402,11 +420,14 @@
       roomBtn.textContent = 'Xem phòng trống';
       roomBtn.addEventListener('click', async () => {
         try {
+          if (hotel.hotelId == null) {
+            throw new Error('Không có hotelId hợp lệ để tìm phòng trống');
+          }
           const checkIn = document.getElementById('checkInDate').value;
           const checkOut = document.getElementById('checkOutDate').value;
           if (!checkIn || !checkOut) throw new Error('Vui lòng chọn check-in/check-out');
-          const q = new URLSearchParams({ hotelId: String(hotel.hotelId), checkIn, checkOut });
-          const data = await apiFetch(`/rooms/available?${q.toString()}`);
+          const queryParams = new URLSearchParams({ hotelId: String(hotel.hotelId), checkIn, checkOut });
+          const data = await apiFetch(`/rooms/available?${queryParams.toString()}`);
           const count = Array.isArray(data?.data) ? data.data.length : 0;
           setStatus(searchStatus, `Khách sạn "${hotel.name}": có ${count} phòng trống.`, 'success');
         } catch (error) {
@@ -453,7 +474,7 @@
       const page = res?.data || {};
       state.totalPages = page.totalPages || 0;
       updatePaginationButtons();
-      resultMeta.textContent = `Trang ${Number(page.page || 0) + 1}/${page.totalPages || 1} • Tổng ${page.totalElements || 0} khách sạn`;
+      resultMeta.textContent = `Trang ${(page.page || 0) + 1}/${page.totalPages || 1} • Tổng ${page.totalElements || 0} khách sạn`;
       renderHotels(page.content || []);
       setStatus(searchStatus, 'Tải danh sách khách sạn thành công.', 'success');
     } catch (error) {
