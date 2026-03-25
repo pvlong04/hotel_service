@@ -1,6 +1,6 @@
-# Hotel Service API Tester (Frontend)
+# Hotel Management UI (Frontend)
 
-Frontend dùng để test nhanh API backend của dự án hotel_service.
+Frontend quản lý khách sạn dùng để thao tác trực quan với backend APIs của dự án `hotel_service`.
 
 ## Công nghệ
 
@@ -8,6 +8,15 @@ Frontend dùng để test nhanh API backend của dự án hotel_service.
 - JavaScript
 - Vite
 - Tailwind CSS
+
+## Tính năng giao diện
+
+- Đăng nhập và lưu bearer token để gọi API cần xác thực
+- Dashboard thống kê nhanh dữ liệu đã tải
+- Quản lý khách sạn (tìm kiếm khách sạn)
+- Quản lý phòng (lọc danh sách phòng theo hotel/status)
+- Quản lý đặt phòng (kiểm tra phòng trống, xem đơn của tôi, tạo reservation)
+- Quản lý người dùng (lọc danh sách users)
 
 ## Chạy local
 

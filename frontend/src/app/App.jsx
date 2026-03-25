@@ -1,5 +1,5 @@
-import { ApiTesterPage } from '../features/api-tester/components/ApiTesterPage'
+import { HotelManagementPage } from '../features/hotel-management/components/HotelManagementPage'
 
 export default function App() {
-  return <ApiTesterPage />
+  return <HotelManagementPage />
 }
