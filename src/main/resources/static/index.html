@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LakeSide Hotel - Demo Client</title>
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #0b66ff;
+      --primary-dark: #084fc9;
+      --border: #e5e7eb;
+      --danger: #dc2626;
+      --success: #059669;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .hero {
+      background: linear-gradient(130deg, #0d2f6b, #2563eb 60%, #60a5fa);
+      border-radius: 16px;
+      color: #fff;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: .2px;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: rgba(255,255,255,.92);
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 8px 28px rgba(31, 41, 55, .05);
+      margin-bottom: 14px;
+    }
+
+    .panel-title {
+      margin: 0 0 12px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+
+    .field { grid-column: span 12; }
+    @media (min-width: 768px) {
+      .field.md-3 { grid-column: span 3; }
+      .field.md-2 { grid-column: span 2; }
+      .field.md-4 { grid-column: span 4; }
+      .field.md-6 { grid-column: span 6; }
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    input, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      min-height: 40px;
+      padding: 0 11px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    input:focus {
+      outline: 2px solid rgba(11,102,255,.2);
+      border-color: var(--primary);
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--primary);
+      color: #fff;
+      border-color: transparent;
+      font-weight: 600;
+    }
+    button:hover { background: var(--primary-dark); }
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 14px 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .cards {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .thumb {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+
+    .card-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 200px;
+    }
+
+    .name {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+    .price { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .chip {
+      display: inline-block;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #1e40af;
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <section class="hero">
+    <h1>LakeSide Hotel Client</h1>
+    <p>Giao diện mới theo phong cách booking, gọi trực tiếp API của hotel_service.</p>
+  </section>
+
+  <section class="panel">
+    <h2 class="panel-title">1) Đăng nhập để lấy Bearer token</h2>
+    <div class="grid">
+      <div class="field md-4">
+        <label for="username">Username / Email</label>
+        <input id="username" placeholder="admin hoặc email" />
+      </div>
+      <div class="field md-4">
+        <label for="password">Mật khẩu</label>
+        <input id="password" type="password" placeholder="••••••••" />
+      </div>
+      <div class="field md-4" style="align-self:end">
+        <button id="loginBtn" type="button">Đăng nhập</button>
+      </div>
+    </div>
+    <div class="status" id="authStatus">Chưa có token.</div>
+  </section>
+
+  <section class="panel">
+    <h2 class="panel-title">2) Tìm kiếm khách sạn</h2>
+    <div class="grid">
+      <div class="field md-4">
+        <label for="keyword">Điểm đến / Từ khóa</label>
+        <input id="keyword" placeholder="Đà Nẵng, Hà Nội..." />
+      </div>
+      <div class="field md-2">
+        <label for="checkInDate">Check-in</label>
+        <input id="checkInDate" type="date" />
+      </div>
+      <div class="field md-2">
+        <label for="checkOutDate">Check-out</label>
+        <input id="checkOutDate" type="date" />
+      </div>
+      <div class="field md-2">
+        <label for="adults">Người lớn</label>
+        <input id="adults" type="number" min="1" value="2" />
+      </div>
+      <div class="field md-2">
+        <label for="rooms">Phòng</label>
+        <input id="rooms" type="number" min="1" value="1" />
+      </div>
+      <div class="field md-2">
+        <label for="children">Trẻ em</label>
+        <input id="children" type="number" min="0" value="0" />
+      </div>
+      <div class="field md-2">
+        <label for="minPrice">Giá tối thiểu</label>
+        <input id="minPrice" type="number" min="0" />
+      </div>
+      <div class="field md-2">
+        <label for="maxPrice">Giá tối đa</label>
+        <input id="maxPrice" type="number" min="0" />
+      </div>
+      <div class="field md-2">
+        <label for="minStar">Sao từ</label>
+        <input id="minStar" type="number" min="1" max="5" />
+      </div>
+      <div class="field md-2">
+        <label for="maxStar">Sao đến</label>
+        <input id="maxStar" type="number" min="1" max="5" />
+      </div>
+      <div class="field md-2">
+        <label for="size">Số kết quả/trang</label>
+        <input id="size" type="number" min="1" max="100" value="10" />
+      </div>
+      <div class="field md-2" style="align-self:end">
+        <button id="searchBtn" type="button">Tìm khách sạn</button>
+      </div>
+    </div>
+    <div class="status" id="searchStatus"></div>
+  </section>
+
+  <div class="toolbar">
+    <div id="resultMeta">Chưa có dữ liệu.</div>
+    <div>
+      <button class="secondary" id="prevPageBtn" type="button">Trang trước</button>
+      <button class="secondary" id="nextPageBtn" type="button">Trang sau</button>
+    </div>
+  </div>
+
+  <section class="cards" id="hotelList"></section>
+</div>
+
+<script>
+  const state = {
+    token: '',
+    page: 0,
+    totalPages: 0
+  };
+
+  const authStatus = document.getElementById('authStatus');
+  const searchStatus = document.getElementById('searchStatus');
+  const resultMeta = document.getElementById('resultMeta');
+  const hotelList = document.getElementById('hotelList');
+
+  const defaultImage = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop';
+
+  const today = new Date();
+  const toDateInput = (date) => date.toISOString().slice(0, 10);
+  const inDate = new Date(today); inDate.setDate(inDate.getDate() + 1);
+  const outDate = new Date(today); outDate.setDate(outDate.getDate() + 2);
+  document.getElementById('checkInDate').value = toDateInput(inDate);
+  document.getElementById('checkOutDate').value = toDateInput(outDate);
+
+  function formatCurrency(value) {
+    if (typeof value !== 'number') return 'Liên hệ';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
+  }
+
+  function setStatus(el, text, type) {
+    el.textContent = text;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function getNumber(id) {
+    const raw = document.getElementById(id).value;
+    if (raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async function apiFetch(url, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    const response = await fetch(url, { ...options, headers });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = json?.message || `Request thất bại (${response.status})`;
+      throw new Error(msg);
+    }
+    return json;
+  }
+
+  function buildSearchPayload() {
+    return {
+      keyword: document.getElementById('keyword').value.trim() || null,
+      checkInDate: document.getElementById('checkInDate').value || null,
+      checkOutDate: document.getElementById('checkOutDate').value || null,
+      adults: getNumber('adults'),
+      children: getNumber('children'),
+      rooms: getNumber('rooms'),
+      minPrice: getNumber('minPrice'),
+      maxPrice: getNumber('maxPrice'),
+      minStarRating: getNumber('minStar'),
+      maxStarRating: getNumber('maxStar'),
+      page: state.page,
+      size: getNumber('size') || 10
+    };
+  }
+
+  function updatePaginationButtons() {
+    document.getElementById('prevPageBtn').disabled = state.page <= 0;
+    document.getElementById('nextPageBtn').disabled = state.page >= state.totalPages - 1;
+  }
+
+  function renderHotels(items) {
+    hotelList.innerHTML = '';
+    if (!items || items.length === 0) {
+      resultMeta.textContent = 'Không tìm thấy khách sạn phù hợp.';
+      return;
+    }
+
+    items.forEach((hotel) => {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const image = document.createElement('img');
+      image.className = 'thumb';
+      image.alt = hotel.name || 'hotel';
+      image.src = hotel.primaryImageUrl || hotel.images?.[0]?.url || defaultImage;
+      image.loading = 'lazy';
+      card.appendChild(image);
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      const name = document.createElement('h3');
+      name.className = 'name';
+      name.textContent = hotel.name || 'Không rõ tên';
+      body.appendChild(name);
+
+      const stars = document.createElement('div');
+      stars.className = 'muted';
+      stars.textContent = `⭐ ${hotel.starRating || '-'} sao • Đánh giá TB: ${hotel.averageRating ?? '-'}`;
+      body.appendChild(stars);
+
+      const address = document.createElement('div');
+      address.className = 'muted';
+      address.textContent = hotel.address || 'Không có địa chỉ';
+      body.appendChild(address);
+
+      const chips = document.createElement('div');
+      const availableChip = document.createElement('span');
+      availableChip.className = 'chip';
+      availableChip.textContent = `Phòng trống: ${hotel.availableRooms ?? '-'}`;
+      chips.appendChild(availableChip);
+      const reviewsChip = document.createElement('span');
+      reviewsChip.className = 'chip';
+      reviewsChip.textContent = `Review: ${hotel.reviewCount ?? 0}`;
+      chips.appendChild(reviewsChip);
+      body.appendChild(chips);
+
+      const price = document.createElement('div');
+      price.className = 'price';
+      price.textContent = `${formatCurrency(hotel.minPrice)} / đêm`;
+      body.appendChild(price);
+
+      const roomBtn = document.createElement('button');
+      roomBtn.type = 'button';
+      roomBtn.className = 'secondary';
+      roomBtn.textContent = 'Xem phòng trống';
+      roomBtn.addEventListener('click', async () => {
+        try {
+          const checkIn = document.getElementById('checkInDate').value;
+          const checkOut = document.getElementById('checkOutDate').value;
+          if (!checkIn || !checkOut) throw new Error('Vui lòng chọn check-in/check-out');
+          const q = new URLSearchParams({ hotelId: String(hotel.hotelId), checkIn, checkOut });
+          const data = await apiFetch(`/rooms/available?${q.toString()}`);
+          const count = Array.isArray(data?.data) ? data.data.length : 0;
+          setStatus(searchStatus, `Khách sạn "${hotel.name}": có ${count} phòng trống.`, 'success');
+        } catch (error) {
+          setStatus(searchStatus, error.message || 'Không tải được phòng trống', 'error');
+        }
+      });
+      body.appendChild(roomBtn);
+
+      card.appendChild(body);
+      hotelList.appendChild(card);
+    });
+  }
+
+  async function login() {
+    try {
+      setStatus(authStatus, 'Đang đăng nhập...', '');
+      const usernameOrEmail = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if (!usernameOrEmail || !password) throw new Error('Nhập username/email và mật khẩu');
+
+      const res = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ usernameOrEmail, password })
+      });
+      const token = res?.data?.accessToken;
+      if (!token) throw new Error('Không nhận được access token từ API');
+      state.token = token;
+      setStatus(authStatus, 'Đăng nhập thành công, token đã sẵn sàng.', 'success');
+    } catch (error) {
+      state.token = '';
+      setStatus(authStatus, error.message || 'Đăng nhập thất bại', 'error');
+    }
+  }
+
+  async function searchHotels() {
+    try {
+      if (!state.token) throw new Error('Cần đăng nhập trước khi tìm kiếm.');
+      setStatus(searchStatus, 'Đang tải khách sạn...', '');
+      const payload = buildSearchPayload();
+      const res = await apiFetch('/hotels/search', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const page = res?.data || {};
+      state.totalPages = page.totalPages || 0;
+      updatePaginationButtons();
+      resultMeta.textContent = `Trang ${Number(page.page || 0) + 1}/${page.totalPages || 1} • Tổng ${page.totalElements || 0} khách sạn`;
+      renderHotels(page.content || []);
+      setStatus(searchStatus, 'Tải danh sách khách sạn thành công.', 'success');
+    } catch (error) {
+      renderHotels([]);
+      setStatus(searchStatus, error.message || 'Tìm kiếm thất bại', 'error');
+      resultMeta.textContent = 'Không có dữ liệu.';
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', login);
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    state.page = 0;
+    searchHotels();
+  });
+  document.getElementById('prevPageBtn').addEventListener('click', () => {
+    if (state.page > 0) {
+      state.page -= 1;
+      searchHotels();
+    }
+  });
+  document.getElementById('nextPageBtn').addEventListener('click', () => {
+    if (state.page < state.totalPages - 1) {
+      state.page += 1;
+      searchHotels();
+    }
+  });
+
+  updatePaginationButtons();
+</script>
+</body>
+</html>

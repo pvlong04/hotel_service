@@ -31,6 +31,8 @@ public class SecurityConfig {
         httpSecurity.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, PUBLIC_URL )
                 .permitAll()
+                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/error", "/favicon.ico")
+                .permitAll()
 
 //                .requestMatchers(HttpMethod.GET, PUBLIC_URL_USER).permitAll()
 
@@ -59,4 +61,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(10);
     }
 }
-
