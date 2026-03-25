@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.enums.HotelStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -31,8 +32,14 @@ public class Hotel {
     @Column(name = "description", columnDefinition = "TEXT")
     String description;
 
-    @Column(name = "address", length = 255)
+    @Column(name = "address", length = 500)
     String address;
+
+    @Column(name = "latitude", precision = 10, scale = 8)
+    BigDecimal latitude;
+
+    @Column(name = "longitude", precision = 11, scale = 8)
+    BigDecimal longitude;
 
     @Column(name = "city", length = 100)
     String city;

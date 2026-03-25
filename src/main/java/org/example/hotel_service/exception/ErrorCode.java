@@ -31,7 +31,11 @@ public enum ErrorCode {
     FLOOR_NOT_FOUND(1019, "Không tìm thấy tầng"),
     ROOM_NOT_FOUND(1020, "Không tìm thấy phòng"),
     ROOM_ALREADY_EXISTS(1021, "Số phòng đã tồn tại trong khách sạn"),
-    INVALID_DATE_RANGE(1022, "Khoảng ngày không hợp lệ");
+    INVALID_DATE_RANGE(1022, "Khoảng ngày không hợp lệ"),
+    RESERVATION_NOT_FOUND(1023, "Không tìm thấy đơn đặt phòng"),
+    RESERVATION_ACCESS_DENIED(1024, "Bạn không có quyền truy cập đơn đặt phòng này"),
+    RESERVATION_STATUS_TRANSITION_INVALID(1025, "Chuyển trạng thái đơn đặt phòng không hợp lệ"),
+    PAYMENT_AMOUNT_INVALID(1026, "Số tiền thanh toán không hợp lệ");
 
     int code;
     String message;

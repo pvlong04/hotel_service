@@ -3,8 +3,6 @@ package org.example.hotel_service.dtos.response;
 import java.math.BigDecimal;
 import java.util.List;
 
-import org.example.hotel_service.entities.RoomImage;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,7 +24,7 @@ public class HotelSearchResponse {
     String address;
     Integer starRating;
     String primaryImageUrl;
-    List<RoomImage> images;
+    List<ImageItem> images;
 
     // Thống kê
     BigDecimal averageRating;
@@ -43,4 +41,18 @@ public class HotelSearchResponse {
     BigDecimal latitude;
     BigDecimal longitude;
     BigDecimal distance; // km từ vị trí tìm kiếm
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ImageItem {
+        Long imageId;
+        String url;
+        String caption;
+        String type;
+        Boolean isPrimary;
+        Integer sortOrder;
+    }
 }

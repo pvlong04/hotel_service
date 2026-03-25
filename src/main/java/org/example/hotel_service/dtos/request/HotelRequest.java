@@ -2,11 +2,14 @@ package org.example.hotel_service.dtos.request;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
 
 import org.example.hotel_service.enums.HotelStatus;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -38,6 +41,7 @@ public class HotelRequest {
     String phone;
 
     @Size(max = 150, message = "Email không quá 150 ký tự")
+    @Email(message = "Email không đúng định dạng")
     String email;
 
     String description;
@@ -49,11 +53,17 @@ public class HotelRequest {
     LocalTime checkInTime;
     LocalTime checkOutTime;
 
+    @Min(value = -90, message = "Vĩ độ tối thiểu là -90")
+    @Max(value = 90, message = "Vĩ độ tối đa là 90")
     BigDecimal latitude;
+    @Min(value = -180, message = "Kinh độ tối thiểu là -180")
+    @Max(value = 180, message = "Kinh độ tối đa là 180")
     BigDecimal longitude;
 
     @Size(max = 64, message = "Timezone không quá 64 ký tự")
     String timezone;
 
     HotelStatus status;
+
+    List<@Valid HotelImageRequest> images;
 }

@@ -41,16 +41,18 @@ SET sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
 --   last_login_at: Thời điểm đăng nhập lần cuối (để tracking)
 CREATE TABLE users (
                        user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                       username VARCHAR(100) NOT NULL ,
-                       email VARCHAR(150) ,
+                       username VARCHAR(50) NOT NULL,
+                       email VARCHAR(150) NOT NULL,
                        password_hash VARCHAR(255) NOT NULL,
                        status ENUM('PENDING','ACTIVE','BANNED') NOT NULL DEFAULT 'PENDING',
                        last_login_at DATETIME DEFAULT NULL,
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+                       UNIQUE KEY uq_users_username (username),
+                       UNIQUE KEY uq_users_email (email),
                        INDEX idx_users_status (status),
-                       INDEX idx_users_email_status (username, status)
+                       INDEX idx_users_username_status (username, status)
 ) ENGINE=InnoDB COMMENT='Bảng người dùng - lưu thông tin đăng nhập';
 
 -- Bảng PROFILES: Thông tin cá nhân của người dùng
@@ -67,10 +69,10 @@ CREATE TABLE profiles (
                           full_name VARCHAR(120) NOT NULL,
                           phone VARCHAR(30) UNIQUE DEFAULT NULL,
                           avatar_url VARCHAR(500) DEFAULT NULL,
-                          address VARCHAR(255) DEFAULT NULL,
+                          address VARCHAR(500) DEFAULT NULL,
                           dob DATE DEFAULT NULL,
                           gender ENUM('MALE','FEMALE','OTHER') DEFAULT NULL,
-                          id_card_number VARCHAR(50) DEFAULT NULL,
+                          national_id VARCHAR(50) DEFAULT NULL,
                           nationality VARCHAR(100) DEFAULT 'Vietnam',
                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -145,7 +147,7 @@ CREATE TABLE refresh_tokens (
                                 token_hash VARCHAR(255) NOT NULL,
                                 expires_at DATETIME NOT NULL,
                                 revoked_at DATETIME DEFAULT NULL,
-                                user_agent VARCHAR(500) DEFAULT NULL,
+                                user_agent VARCHAR(255) DEFAULT NULL,
                                 ip_address VARCHAR(64) DEFAULT NULL,
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -172,8 +174,11 @@ CREATE TABLE hotels (
                         hotel_id INT AUTO_INCREMENT PRIMARY KEY,
                         name VARCHAR(255) NOT NULL,
                         address VARCHAR(500) DEFAULT NULL,
+                        city VARCHAR(100) DEFAULT NULL,
+                        country VARCHAR(100) DEFAULT NULL,
                         phone VARCHAR(64) DEFAULT NULL,
                         email VARCHAR(150) DEFAULT NULL,
+                        website VARCHAR(255) DEFAULT NULL,
                         description TEXT DEFAULT NULL,
                         star_rating TINYINT DEFAULT 3 CHECK (star_rating BETWEEN 1 AND 5),
                         check_in_time TIME DEFAULT '14:00:00',
@@ -199,10 +204,10 @@ CREATE TABLE hotel_images (
                               image_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                               hotel_id INT NOT NULL,
                               url VARCHAR(500) NOT NULL,
-                              image_type ENUM('EXTERIOR','LOBBY','RESTAURANT','POOL','FACILITY','OTHER') DEFAULT 'OTHER',
-                              display_order INT DEFAULT 0,
+                              type ENUM('EXTERIOR','LOBBY','RESTAURANT','POOL','FACILITY','OTHER') NOT NULL DEFAULT 'OTHER',
+                              sort_order INT NOT NULL DEFAULT 0,
                               is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-                              alt_text VARCHAR(255) DEFAULT NULL,
+                              caption VARCHAR(255) DEFAULT NULL,
                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                               INDEX idx_hotel_images_hotel (hotel_id),
@@ -246,12 +251,13 @@ CREATE TABLE room_types (
                             description TEXT DEFAULT NULL,
                             capacity INT NOT NULL DEFAULT 2,
                             max_adults INT NOT NULL DEFAULT 2,
-                            max_children INT NOT NULL DEFAULT 1,
-                            base_price INT NOT NULL DEFAULT 0 COMMENT 'Giá cơ bản theo đơn vị tiền tệ nhỏ nhất (VND)',
-                            weekend_price INT DEFAULT NULL COMMENT 'Giá cuối tuần, NULL = dùng base_price',
-                            extra_bed_price INT DEFAULT 0 COMMENT 'Phí giường phụ',
+                            max_children INT NOT NULL DEFAULT 0,
+                            price_per_night BIGINT NOT NULL DEFAULT 0 COMMENT 'Giá cơ bản theo đơn vị tiền tệ nhỏ nhất (VND)',
+                            weekend_price BIGINT DEFAULT NULL COMMENT 'Giá cuối tuần, NULL = dùng price_per_night',
+                            extra_bed_price BIGINT DEFAULT 0 COMMENT 'Phí giường phụ',
                             bed_type ENUM('SINGLE','DOUBLE','TWIN','KING','QUEEN') DEFAULT 'DOUBLE',
-                            room_size DECIMAL(5,2) DEFAULT NULL COMMENT 'Diện tích phòng (m²)',
+                            bed_count INT NOT NULL DEFAULT 1,
+                            room_size DECIMAL(6,2) DEFAULT NULL COMMENT 'Diện tích phòng (m²)',
                             status ENUM('ACTIVE','INACTIVE','ARCHIVED') NOT NULL DEFAULT 'ACTIVE',
                             total_rooms INT NOT NULL DEFAULT 0 COMMENT 'Tổng số phòng (auto-updated by trigger)',
                             available_rooms INT NOT NULL DEFAULT 0 COMMENT 'Số phòng trống (auto-updated by trigger)',
@@ -261,7 +267,7 @@ CREATE TABLE room_types (
                             UNIQUE KEY uq_room_type_code_hotel (hotel_id, code),
                             INDEX idx_rt_hotel (hotel_id),
                             INDEX idx_rt_status (status),
-                            INDEX idx_rt_price (base_price),
+                            INDEX idx_rt_price (price_per_night),
                             CONSTRAINT fk_rt_hotel FOREIGN KEY (hotel_id)
                                 REFERENCES hotels(hotel_id) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='Các loại phòng trong khách sạn';
@@ -273,9 +279,9 @@ CREATE TABLE room_type_images (
                                   image_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                   room_type_id BIGINT NOT NULL,
                                   url VARCHAR(500) NOT NULL,
-                                  display_order INT DEFAULT 0,
+                                  sort_order INT NOT NULL DEFAULT 0,
                                   is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-                                  alt_text VARCHAR(255) DEFAULT NULL,
+                                  caption VARCHAR(255) DEFAULT NULL,
                                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                                   INDEX idx_rti_room_type (room_type_id),
@@ -347,6 +353,21 @@ CREATE TABLE rooms (
                            REFERENCES floors(floor_id) ON DELETE SET NULL
 ) ENGINE=InnoDB COMMENT='Các phòng cụ thể trong khách sạn';
 
+-- Bảng ROOM_IMAGES: Ảnh riêng theo từng phòng vật lý
+CREATE TABLE room_images (
+                             image_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                             room_id BIGINT NOT NULL,
+                             url VARCHAR(500) NOT NULL,
+                             caption VARCHAR(255) DEFAULT NULL,
+                             is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+                             sort_order INT NOT NULL DEFAULT 0,
+                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                             INDEX idx_room_images_room (room_id),
+                             CONSTRAINT fk_room_image_room FOREIGN KEY (room_id)
+                                 REFERENCES rooms(room_id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Ảnh riêng theo từng phòng';
+
 
 -- =========================================================
 -- 3) RESERVATIONS / BOOKING / ITEMS / PAYMENTS / NOTIFICATIONS
@@ -372,36 +393,32 @@ CREATE TABLE reservations (
                               reservation_code VARCHAR(40) NOT NULL UNIQUE,
                               guest_id BIGINT NOT NULL,
                               hotel_id INT NOT NULL,
-                              status ENUM('PENDING','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED','NO_SHOW') NOT NULL DEFAULT 'PENDING',
-
-    -- Thời gian yêu cầu và xử lý
-                              requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                              approved_at DATETIME DEFAULT NULL,
-                              approved_by BIGINT DEFAULT NULL,
+                              status ENUM('PENDING','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED') NOT NULL DEFAULT 'PENDING',
 
     -- Ngày check-in/out dự kiến
                               check_in_date DATE NOT NULL,
                               check_out_date DATE NOT NULL,
                               nights_count INT NOT NULL DEFAULT 1,
 
-    -- Thời điểm check-in/out thực tế
-                              actual_check_in DATETIME DEFAULT NULL,
-                              actual_check_out DATETIME DEFAULT NULL,
-
-    -- Số người
-                              adults INT NOT NULL DEFAULT 1,
-                              children INT NOT NULL DEFAULT 0,
+                              -- Số người
+                              adult_count INT NOT NULL DEFAULT 1,
+                              child_count INT NOT NULL DEFAULT 0,
 
     -- Tài chính
-                              total_amount INT NOT NULL DEFAULT 0,
-                              paid_amount INT NOT NULL DEFAULT 0,
-                              discount_amount INT NOT NULL DEFAULT 0,
+                              total_amount BIGINT NOT NULL DEFAULT 0,
+                              paid_amount BIGINT NOT NULL DEFAULT 0,
 
-    -- Yêu cầu và ghi chú
+                              -- Yêu cầu
                               special_requests TEXT DEFAULT NULL,
-                              internal_notes TEXT DEFAULT NULL,
 
-    -- Hủy
+                              -- Xử lý đơn
+                              confirmed_by BIGINT DEFAULT NULL,
+                              confirmed_at DATETIME DEFAULT NULL,
+                              checked_in_at DATETIME DEFAULT NULL,
+                              checked_out_at DATETIME DEFAULT NULL,
+
+                              -- Hủy
+                              cancelled_by BIGINT DEFAULT NULL,
                               cancelled_at DATETIME DEFAULT NULL,
                               cancel_reason VARCHAR(500) DEFAULT NULL,
 
@@ -420,7 +437,9 @@ CREATE TABLE reservations (
                                   REFERENCES users(user_id) ON DELETE RESTRICT,
                               CONSTRAINT fk_res_hotel FOREIGN KEY (hotel_id)
                                   REFERENCES hotels(hotel_id) ON DELETE CASCADE,
-                              CONSTRAINT fk_res_approved_by FOREIGN KEY (approved_by)
+                              CONSTRAINT fk_res_confirmed_by FOREIGN KEY (confirmed_by)
+                                  REFERENCES users(user_id) ON DELETE SET NULL,
+                              CONSTRAINT fk_res_cancelled_by FOREIGN KEY (cancelled_by)
                                   REFERENCES users(user_id) ON DELETE SET NULL,
                               CONSTRAINT chk_dates CHECK (check_out_date > check_in_date),
                               CONSTRAINT chk_nights CHECK (nights_count > 0)
@@ -436,9 +455,9 @@ CREATE TABLE reservation_items (
                                    reservation_id BIGINT NOT NULL,
                                    room_id BIGINT NOT NULL,
                                    room_type_id BIGINT NOT NULL,
-                                   rate_per_night INT NOT NULL DEFAULT 0,
+                                   rate_per_night BIGINT NOT NULL DEFAULT 0,
                                    nights INT NOT NULL DEFAULT 1,
-                                   amount INT NOT NULL DEFAULT 0,
+                                   amount BIGINT NOT NULL DEFAULT 0,
                                    status ENUM('BOOKED','CHECKED_IN','CHECKED_OUT','CANCELLED') NOT NULL DEFAULT 'BOOKED',
                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -465,10 +484,10 @@ CREATE TABLE reservation_charges (
                                      charge_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                      reservation_id BIGINT NOT NULL,
                                      charge_type ENUM('EXTRA_BED','MINIBAR','ROOM_SERVICE','LAUNDRY','DAMAGE','LATE_CHECKOUT','CANCEL_FEE','OTHER') DEFAULT 'OTHER',
-                                     description VARCHAR(255) DEFAULT NULL,
+                                     description VARCHAR(500) DEFAULT NULL,
                                      quantity INT NOT NULL DEFAULT 1,
                                      unit_price INT NOT NULL DEFAULT 0,
-                                     amount INT NOT NULL DEFAULT 0,
+                                     amount BIGINT NOT NULL DEFAULT 0,
                                      created_by BIGINT DEFAULT NULL,
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -487,16 +506,16 @@ CREATE TABLE reservation_charges (
 --   refund_amount: Số tiền hoàn (nếu có)
 CREATE TABLE payments (
                           payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                          reservation_id BIGINT DEFAULT NULL,
+                          reservation_id BIGINT NOT NULL,
                           guest_id BIGINT NOT NULL,
-                          amount INT NOT NULL,
+                          amount BIGINT NOT NULL,
                           method ENUM('CARD','CASH','BANK_TRANSFER','E_WALLET','ONLINE') NOT NULL DEFAULT 'ONLINE',
                           provider VARCHAR(100) DEFAULT NULL,
-                          provider_trans_id VARCHAR(255) DEFAULT NULL,
+                          provider_trans_id VARCHAR(150) DEFAULT NULL,
                           status ENUM('PENDING','COMPLETED','FAILED','REFUNDED','PARTIALLY_REFUNDED') NOT NULL DEFAULT 'PENDING',
                           refund_amount INT DEFAULT 0,
                           paid_at DATETIME DEFAULT NULL,
-                          notes VARCHAR(500) DEFAULT NULL,
+                          note VARCHAR(500) DEFAULT NULL,
                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -506,7 +525,7 @@ CREATE TABLE payments (
                           INDEX idx_pay_provider_trans (provider_trans_id),
 
                           CONSTRAINT fk_pay_res FOREIGN KEY (reservation_id)
-                              REFERENCES reservations(reservation_id) ON DELETE SET NULL,
+                              REFERENCES reservations(reservation_id) ON DELETE RESTRICT,
                           CONSTRAINT fk_pay_guest FOREIGN KEY (guest_id)
                               REFERENCES users(user_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB COMMENT='Thanh toán';
@@ -736,7 +755,7 @@ INSERT INTO amenities (name, description, icon, category) VALUES
                                                               ('Máy sấy tóc', 'Máy sấy tóc trong phòng tắm', 'wind', 'BATHROOM');
 
 -- Room types
-INSERT INTO room_types (hotel_id, code, name, description, capacity, max_adults, max_children, base_price, weekend_price, bed_type, room_size) VALUES
+INSERT INTO room_types (hotel_id, code, name, description, capacity, max_adults, max_children, price_per_night, weekend_price, bed_type, room_size) VALUES
                                                                                                                                                    (1, 'STD', 'Standard', 'Phòng tiêu chuẩn, view thành phố', 2, 2, 1, 800000, 900000, 'DOUBLE', 25.00),
                                                                                                                                                    (1, 'SUP', 'Superior', 'Phòng Superior, rộng rãi hơn', 2, 2, 1, 1000000, 1150000, 'DOUBLE', 30.00),
                                                                                                                                                    (1, 'DLX', 'Deluxe', 'Phòng Deluxe với view đẹp', 3, 2, 2, 1500000, 1700000, 'KING', 35.00),

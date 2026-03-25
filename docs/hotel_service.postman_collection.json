@@ -1,0 +1,558 @@
+{
+  "info": {
+    "_postman_id": "7f4b4b64-6f6e-4f47-a3c7-f1f9a1ecdd01",
+    "name": "Hotel Service API Tests",
+    "description": "Postman collection for hotel_service APIs (/auth, /users, /hotels, /rooms).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:9000" },
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "admin" },
+    { "key": "guestUsername", "value": "" },
+    { "key": "guestEmail", "value": "" },
+    { "key": "guestPassword", "value": "123456" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "userId", "value": "1" },
+    { "key": "hotelId", "value": "1" },
+    { "key": "roomId", "value": "1" },
+    { "key": "roomTypeId", "value": "1" },
+    { "key": "floorId", "value": "1" },
+    { "key": "roomNumber", "value": "R101" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "01. Auth",
+      "item": [
+        {
+          "name": "Register (Guest)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('guestUsername', `guest_${ts}`);",
+                  "pm.collectionVariables.set('guestEmail', `guest_${ts}@mail.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200/201', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('ApiResponse success true', function () {",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{guestUsername}}\",\n  \"email\": \"{{guestEmail}}\",\n  \"password\": \"{{guestPassword}}\",\n  \"fullName\": \"Guest Test\",\n  \"phone\": \"0900000000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "const json = pm.response.json();",
+                  "pm.test('ApiResponse success true', function () {",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "});",
+                  "pm.collectionVariables.set('accessToken', json.data.accessToken || '');",
+                  "pm.collectionVariables.set('refreshToken', json.data.refreshToken || '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "const json = pm.response.json();",
+                  "pm.test('ApiResponse success true', function () {",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "});",
+                  "if (json.data && json.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "}",
+                  "if (json.data && json.data.refreshToken) {",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Users",
+      "item": [
+        {
+          "name": "Get Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get User By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create User (STAFF)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('newUsername', `staff_${ts}`);",
+                  "pm.collectionVariables.set('newEmail', `staff_${ts}@mail.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.userId) {",
+                  "  pm.collectionVariables.set('userId', String(json.data.userId));",
+                  "}",
+                  "pm.test('Created user has STAFF role', function () {",
+                  "  pm.expect(json.data.roles || []).to.include('STAFF');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{newUsername}}\",\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"123456\",\n  \"fullName\": \"Staff Test\",\n  \"phone\": \"0900000011\",\n  \"address\": \"HCM\",\n  \"dob\": \"1995-01-01\",\n  \"gender\": \"MALE\",\n  \"nationalId\": \"012345678901\",\n  \"nationality\": \"Vietnam\",\n  \"roles\": [\"STAFF\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Staff Updated\",\n  \"phone\": \"0900000099\",\n  \"address\": \"Updated Address\",\n  \"roles\": [\"STAFF\"],\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/status?status=BANNED",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "status"],
+              "query": [
+                { "key": "status", "value": "BANNED" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Hotels",
+      "item": [
+        {
+          "name": "Search Hotels",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyword\": \"Demo\",\n  \"checkInDate\": \"2026-04-01\",\n  \"checkOutDate\": \"2026-04-03\",\n  \"adults\": 2,\n  \"children\": 0,\n  \"rooms\": 1,\n  \"minStarRating\": 1,\n  \"maxStarRating\": 5,\n  \"page\": 0,\n  \"size\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/hotels/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["hotels", "search"]
+            }
+          }
+        },
+        {
+          "name": "Get Hotel By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/hotels/{{hotelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["hotels", "{{hotelId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Hotel",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('hotelName', `Hotel_${ts}`);",
+                  "pm.collectionVariables.set('hotelEmail', `hotel_${ts}@mail.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.hotelId) pm.collectionVariables.set('hotelId', String(json.data.hotelId));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{hotelName}}\",\n  \"address\": \"123 Example St\",\n  \"phone\": \"+84-123-456\",\n  \"email\": \"{{hotelEmail}}\",\n  \"description\": \"Created by Postman\",\n  \"starRating\": 4,\n  \"checkInTime\": \"14:00:00\",\n  \"checkOutTime\": \"12:00:00\",\n  \"latitude\": 10.7758,\n  \"longitude\": 106.7009,\n  \"timezone\": \"Asia/Ho_Chi_Minh\",\n  \"status\": \"ACTIVE\",\n  \"images\": [\n    {\n      \"url\": \"https://images.example.com/hotel/exterior-1.jpg\",\n      \"caption\": \"Front view\",\n      \"type\": \"EXTERIOR\",\n      \"isPrimary\": true,\n      \"sortOrder\": 0\n    },\n    {\n      \"url\": \"https://images.example.com/hotel/lobby-1.jpg\",\n      \"caption\": \"Lobby\",\n      \"type\": \"LOBBY\",\n      \"isPrimary\": false,\n      \"sortOrder\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/hotels",
+              "host": ["{{baseUrl}}"],
+              "path": ["hotels"]
+            }
+          }
+        },
+        {
+          "name": "Update Hotel",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{hotelName}} Updated\",\n  \"address\": \"456 Updated St\",\n  \"phone\": \"+84-987-654\",\n  \"email\": \"{{hotelEmail}}\",\n  \"description\": \"Updated by Postman\",\n  \"starRating\": 5,\n  \"checkInTime\": \"14:00:00\",\n  \"checkOutTime\": \"12:00:00\",\n  \"latitude\": 10.78,\n  \"longitude\": 106.71,\n  \"timezone\": \"Asia/Ho_Chi_Minh\",\n  \"status\": \"ACTIVE\",\n  \"images\": [\n    {\n      \"url\": \"https://images.example.com/hotel/exterior-2.jpg\",\n      \"caption\": \"New front view\",\n      \"type\": \"EXTERIOR\",\n      \"isPrimary\": true,\n      \"sortOrder\": 0\n    },\n    {\n      \"url\": \"https://images.example.com/hotel/pool-1.jpg\",\n      \"caption\": \"Pool area\",\n      \"type\": \"POOL\",\n      \"isPrimary\": false,\n      \"sortOrder\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/hotels/{{hotelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["hotels", "{{hotelId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Hotel",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/hotels/{{hotelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["hotels", "{{hotelId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Rooms",
+      "item": [
+        {
+          "name": "Get Rooms",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms?hotelId={{hotelId}}&status=AVAILABLE&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms"],
+              "query": [
+                { "key": "hotelId", "value": "{{hotelId}}" },
+                { "key": "status", "value": "AVAILABLE" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Room By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Room",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const num = Math.floor(Math.random() * 900) + 100;",
+                  "pm.collectionVariables.set('roomNumber', `R${num}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.roomId) pm.collectionVariables.set('roomId', String(json.data.roomId));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hotelId\": {{hotelId}},\n  \"roomNumber\": \"{{roomNumber}}\",\n  \"roomTypeId\": {{roomTypeId}},\n  \"floorId\": {{floorId}},\n  \"status\": \"AVAILABLE\",\n  \"note\": \"Created by Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rooms",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms"]
+            }
+          }
+        },
+        {
+          "name": "Update Room",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hotelId\": {{hotelId}},\n  \"roomNumber\": \"{{roomNumber}}\",\n  \"roomTypeId\": {{roomTypeId}},\n  \"floorId\": {{floorId}},\n  \"status\": \"MAINTENANCE\",\n  \"note\": \"Updated by Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Available Rooms",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms/available?hotelId={{hotelId}}&checkIn=2026-04-01&checkOut=2026-04-03",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "available"],
+              "query": [
+                { "key": "hotelId", "value": "{{hotelId}}" },
+                { "key": "checkIn", "value": "2026-04-01" },
+                { "key": "checkOut", "value": "2026-04-03" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Room Images",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}/images",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}", "images"]
+            }
+          }
+        },
+        {
+          "name": "Delete Room",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
