@@ -3,7 +3,6 @@ package org.example.hotel_service.services.hotel;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.dtos.request.HotelImageRequest;
 import org.example.hotel_service.dtos.request.HotelRequest;
 import org.example.hotel_service.dtos.request.HotelSearchRequest;
@@ -18,10 +17,7 @@ import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.HotelRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.example.hotel_service.repositories.RoomRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,68 +36,91 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Slf4j
 public class HotelService implements HotelServiceImp {
     HotelRepository hotelRepository;
+    RoomRepository roomRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public HotelSearchResponse getCurrentHotel() {
+        Hotel hotel = findCurrentHotel();
+        return toSearchResponse(hotel, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public HotelSearchResponse updateCurrentHotel(HotelRequest request, Jwt jwt) {
+        requireAnyRole(jwt, Roles.ADMIN);
+
+        Hotel hotel = findCurrentHotel();
+        applyHotelRequest(hotel, request);
+
+        if (request.getImages() != null) {
+            hotel.getImages().clear();
+            hotel.getImages().addAll(mapRequestImages(request.getImages(), hotel));
+        }
+
+        Hotel saved = hotelRepository.save(hotel);
+        return toSearchResponse(saved, null, null, null);
+    }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<HotelSearchResponse> searchHotels(HotelSearchRequest request) {
         validateSearchRequest(request);
 
-        Pageable pageable = PageRequest.of(
-                normalizePage(request.getPage()),
-                normalizeSize(request.getSize()),
-                buildSort(request.getSortBy(), request.getSortDirection())
-        );
-
-        Page<Hotel> hotelPage = hotelRepository.searchHotels(
-                normalizeKeyword(request.getKeyword()),
-                HotelStatus.ACTIVE,
-                request.getMinStarRating(),
-                request.getMaxStarRating(),
-                request.getMinPrice(),
-                request.getMaxPrice(),
-                pageable
-        );
+        Hotel hotel = findCurrentHotel();
 
         LocalDate checkInDate = request.getCheckInDate();
         LocalDate checkOutDate = request.getCheckOutDate();
-
-        List<HotelSearchResponse> content = hotelPage.getContent().stream()
-                .map(hotel -> toSearchResponse(hotel, request.getLatitude(), request.getLongitude()))
-                .filter(resp -> matchesRequestedRoomCount(resp, request.getRooms()))
-                .collect(Collectors.toList());
-
+        Integer availableRoomsOverride = null;
         if (checkInDate != null && checkOutDate != null) {
-            log.debug("Search with date range {} - {}. Availability-by-date filter is not applied yet.",
-                    checkInDate, checkOutDate);
+            availableRoomsOverride = roomRepository
+                    .findAvailableRooms(hotel.getHotelId(), checkInDate, checkOutDate)
+                    .size();
         }
+
+        HotelSearchResponse response = toSearchResponse(
+                hotel,
+                request.getLatitude(),
+                request.getLongitude(),
+                availableRoomsOverride
+        );
+
+        boolean matched = matchesLegacySearch(hotel, response, request);
+        List<HotelSearchResponse> content = matched ? List.of(response) : List.of();
 
         return PageResponse.<HotelSearchResponse>builder()
                 .content(content)
-                .page(hotelPage.getNumber())
-                .size(hotelPage.getSize())
-                .totalElements(hotelPage.getTotalElements())
-                .totalPages(hotelPage.getTotalPages())
-                .first(hotelPage.isFirst())
-                .last(hotelPage.isLast())
-                .hasNext(hotelPage.hasNext())
-                .hasPrevious(hotelPage.hasPrevious())
+                .page(0)
+                .size(content.size())
+                .totalElements(content.size())
+                .totalPages(content.isEmpty() ? 0 : 1)
+                .first(true)
+                .last(true)
+                .hasNext(false)
+                .hasPrevious(false)
                 .build();
     }
 
     @Override
     @Transactional(readOnly = true)
     public HotelSearchResponse getHotelById(Integer hotelId) {
-        Hotel hotel = findHotelById(hotelId);
-        return toSearchResponse(hotel, null, null);
+        Hotel hotel = findCurrentHotel();
+        if (!hotel.getHotelId().equals(hotelId)) {
+            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
+        }
+        return toSearchResponse(hotel, null, null, null);
     }
 
     @Override
     @Transactional
     public HotelSearchResponse createHotel(HotelRequest request, Jwt jwt) {
         requireAnyRole(jwt, Roles.ADMIN);
+
+        if (hotelRepository.findFirstByOrderByHotelIdAsc().isPresent()) {
+            throw new ApiException(ErrorCode.OPERATION_NOT_ALLOWED);
+        }
 
         Hotel hotel = Hotel.builder()
                 .name(request.getName())
@@ -121,7 +140,7 @@ public class HotelService implements HotelServiceImp {
         hotel.setImages(mapRequestImages(request.getImages(), hotel));
 
         Hotel saved = hotelRepository.save(hotel);
-        return toSearchResponse(saved, null, null);
+        return toSearchResponse(saved, null, null, null);
     }
 
     @Override
@@ -129,7 +148,69 @@ public class HotelService implements HotelServiceImp {
     public HotelSearchResponse updateHotel(Integer hotelId, HotelRequest request, Jwt jwt) {
         requireAnyRole(jwt, Roles.ADMIN);
 
-        Hotel hotel = findHotelById(hotelId);
+        Hotel hotel = findCurrentHotel();
+        if (!hotel.getHotelId().equals(hotelId)) {
+            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
+        }
+        applyHotelRequest(hotel, request);
+
+        if (request.getImages() != null) {
+            hotel.getImages().clear();
+            hotel.getImages().addAll(mapRequestImages(request.getImages(), hotel));
+        }
+
+        Hotel saved = hotelRepository.save(hotel);
+        return toSearchResponse(saved, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public void deleteHotel(Integer hotelId, Jwt jwt) {
+        requireAnyRole(jwt, Roles.ADMIN);
+        throw new ApiException(ErrorCode.OPERATION_NOT_ALLOWED);
+    }
+
+    private Hotel findCurrentHotel() {
+        return hotelRepository.findFirstWithImagesAndRoomTypesByOrderByHotelIdAsc()
+                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
+    }
+
+    private boolean matchesLegacySearch(Hotel hotel, HotelSearchResponse response, HotelSearchRequest request) {
+        String keyword = normalizeKeyword(request.getKeyword());
+        if (keyword != null) {
+            String lowerKeyword = keyword.toLowerCase();
+            boolean keywordMatched = (hotel.getName() != null && hotel.getName().toLowerCase().contains(lowerKeyword))
+                    || (hotel.getAddress() != null && hotel.getAddress().toLowerCase().contains(lowerKeyword));
+            if (!keywordMatched) {
+                return false;
+            }
+        }
+
+        if (hotel.getStatus() != HotelStatus.ACTIVE) {
+            return false;
+        }
+
+        Integer star = hotel.getStarRating();
+        if (request.getMinStarRating() != null && (star == null || star < request.getMinStarRating())) {
+            return false;
+        }
+        if (request.getMaxStarRating() != null && (star == null || star > request.getMaxStarRating())) {
+            return false;
+        }
+
+        Integer minPrice = response.getMinPrice();
+        Integer maxPrice = response.getMaxPrice();
+        if (request.getMinPrice() != null && (maxPrice == null || maxPrice < request.getMinPrice())) {
+            return false;
+        }
+        if (request.getMaxPrice() != null && (minPrice == null || minPrice > request.getMaxPrice())) {
+            return false;
+        }
+
+        return matchesRequestedRoomCount(response, request.getRooms());
+    }
+
+    private void applyHotelRequest(Hotel hotel, HotelRequest request) {
         hotel.setName(request.getName());
         hotel.setDescription(request.getDescription());
         hotel.setAddress(request.getAddress());
@@ -142,27 +223,6 @@ public class HotelService implements HotelServiceImp {
         hotel.setLongitude(request.getLongitude());
         hotel.setTimezone(request.getTimezone());
         hotel.setStatus(request.getStatus() != null ? request.getStatus() : hotel.getStatus());
-
-        if (request.getImages() != null) {
-            hotel.getImages().clear();
-            hotel.getImages().addAll(mapRequestImages(request.getImages(), hotel));
-        }
-
-        Hotel saved = hotelRepository.save(hotel);
-        return toSearchResponse(saved, null, null);
-    }
-
-    @Override
-    @Transactional
-    public void deleteHotel(Integer hotelId, Jwt jwt) {
-        requireAnyRole(jwt, Roles.ADMIN);
-        Hotel hotel = findHotelById(hotelId);
-        hotelRepository.delete(hotel);
-    }
-
-    private Hotel findHotelById(Integer hotelId) {
-        return hotelRepository.findWithImagesAndRoomTypesByHotelId(hotelId)
-                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
     }
 
     private String normalizeKeyword(String keyword) {
@@ -172,34 +232,6 @@ public class HotelService implements HotelServiceImp {
         return keyword.trim();
     }
 
-    private int normalizePage(Integer page) {
-        if (page == null || page < 0) {
-            return 0;
-        }
-        return page;
-    }
-
-    private int normalizeSize(Integer size) {
-        if (size == null || size <= 0) {
-            return 10;
-        }
-        return Math.min(size, 100);
-    }
-
-    private Sort buildSort(String sortBy, String sortDirection) {
-        String normalizedSortBy = sortBy == null ? "createdAt" : sortBy.trim().toLowerCase();
-        String sortColumn = switch (normalizedSortBy) {
-            case "name" -> "name";
-            case "rating", "starrating" -> "starRating";
-            case "updatedat" -> "updatedAt";
-            default -> "createdAt";
-        };
-
-        Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection)
-                ? Sort.Direction.ASC
-                : Sort.Direction.DESC;
-        return Sort.by(direction, sortColumn);
-    }
 
     private void validateSearchRequest(HotelSearchRequest request) {
         if (request == null) {
@@ -248,7 +280,7 @@ public class HotelService implements HotelServiceImp {
         return BigDecimal.valueOf(earthRadiusKm * c).setScale(2, RoundingMode.HALF_UP);
     }
 
-    private HotelSearchResponse toSearchResponse(Hotel hotel, Double fromLat, Double fromLng) {
+    private HotelSearchResponse toSearchResponse(Hotel hotel, Double fromLat, Double fromLng, Integer availableRoomsOverride) {
         List<RoomType> roomTypes = hotel.getRoomTypes() == null ? List.of() : hotel.getRoomTypes();
 
         Long minPriceLong = roomTypes.stream()
@@ -267,6 +299,10 @@ public class HotelService implements HotelServiceImp {
                 .map(RoomType::getAvailableRooms)
                 .filter(Objects::nonNull)
                 .reduce(0, Integer::sum);
+
+        if (availableRoomsOverride != null) {
+            availableRooms = Math.max(availableRoomsOverride, 0);
+        }
 
         List<HotelSearchResponse.ImageItem> images = mapImages(hotel.getImages());
         String primaryImageUrl = images.stream()

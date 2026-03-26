@@ -45,7 +45,7 @@ public class RoomController {
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết phòng thành công", result));
     }
 
-    @PostMapping
+    @PostMapping("/add_rooms")
     public ResponseEntity<ApiResponse<RoomResponse>> createRoom(
             @Valid @RequestBody RoomRequest request,
             @AuthenticationPrincipal Jwt jwt

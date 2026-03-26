@@ -24,6 +24,21 @@ public class HotelController {
 
     HotelServiceImp hotelService;
 
+    @GetMapping("/current")
+    public ResponseEntity<ApiResponse<HotelSearchResponse>> getCurrentHotel() {
+        HotelSearchResponse result = hotelService.getCurrentHotel();
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin khách sạn hiện tại thành công", result));
+    }
+
+    @PutMapping("/current")
+    public ResponseEntity<ApiResponse<HotelSearchResponse>> updateCurrentHotel(
+            @Valid @RequestBody HotelRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        HotelSearchResponse result = hotelService.updateCurrentHotel(request, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật khách sạn hiện tại thành công", result));
+    }
+
     @PostMapping("/search")
     public ResponseEntity<ApiResponse<PageResponse<HotelSearchResponse>>> searchHotels(
             @Valid @RequestBody HotelSearchRequest request
@@ -45,7 +60,7 @@ public class HotelController {
     ) {
         HotelSearchResponse result = hotelService.createHotel(request, jwt);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Tạo khách sạn thành công", result));
+                .body(ApiResponse.success("Khởi tạo khách sạn thành công", result));
     }
 
     @PutMapping("/{hotelId}")

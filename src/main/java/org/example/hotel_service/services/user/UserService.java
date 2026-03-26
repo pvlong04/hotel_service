@@ -16,6 +16,7 @@ import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.enums.UserStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
+import org.example.hotel_service.mapper.UserMapper;
 import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.springframework.data.domain.Page;
@@ -42,6 +43,7 @@ public class UserService implements UserServiceImp {
     UserRepository userRepository;
     RoleRepository roleRepository;
     PasswordEncoder passwordEncoder;
+    UserMapper mapper;
 
     // ─────────────────── helpers ───────────────────
 

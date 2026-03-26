@@ -7,6 +7,10 @@ import org.example.hotel_service.dtos.response.PageResponse;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 public interface HotelServiceImp {
+    HotelSearchResponse getCurrentHotel();
+
+    HotelSearchResponse updateCurrentHotel(HotelRequest request, Jwt jwt);
+
     PageResponse<HotelSearchResponse> searchHotels(HotelSearchRequest request);
 
     HotelSearchResponse getHotelById(Integer hotelId);

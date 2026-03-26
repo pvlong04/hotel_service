@@ -35,7 +35,8 @@ public enum ErrorCode {
     RESERVATION_NOT_FOUND(1023, "Không tìm thấy đơn đặt phòng"),
     RESERVATION_ACCESS_DENIED(1024, "Bạn không có quyền truy cập đơn đặt phòng này"),
     RESERVATION_STATUS_TRANSITION_INVALID(1025, "Chuyển trạng thái đơn đặt phòng không hợp lệ"),
-    PAYMENT_AMOUNT_INVALID(1026, "Số tiền thanh toán không hợp lệ");
+    PAYMENT_AMOUNT_INVALID(1026, "Số tiền thanh toán không hợp lệ"),
+    OPERATION_NOT_ALLOWED(1027, "Thao tác không được phép trong chế độ 1 khách sạn");
 
     int code;
     String message;

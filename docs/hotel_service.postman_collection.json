@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7f4b4b64-6f6e-4f47-a3c7-f1f9a1ecdd01",
     "name": "Hotel Service API Tests",
-    "description": "Postman collection for hotel_service APIs (/auth, /users, /hotels, /rooms).",
+    "description": "Postman collection for hotel_service APIs (/auth, /users, /hotels, /rooms, /reservations).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
