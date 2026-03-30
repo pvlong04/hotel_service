@@ -8,5 +8,6 @@ public enum PaymentMethod {
     CASH,           // Tiền mặt
     BANK_TRANSFER,  // Chuyển khoản
     E_WALLET,       // Ví điện tử (Momo, ZaloPay...)
-    ONLINE          // Thanh toán online khác
+    ONLINE,         // Thanh toán online khác
+    QR_CODE         // Thanh toán qua mã QR
 }

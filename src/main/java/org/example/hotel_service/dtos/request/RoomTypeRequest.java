@@ -30,8 +30,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomTypeRequest {
 
-    @NotNull(message = "Hotel ID không được để trống")
-    Integer hotelId;
 
     @NotBlank(message = "Mã loại phòng không được để trống")
     @Size(max = 50, message = "Mã loại phòng không quá 50 ký tự")

@@ -9,7 +9,9 @@ import org.example.hotel_service.dtos.request.CreateChargeRequest;
 import org.example.hotel_service.dtos.request.CreatePaymentRequest;
 import org.example.hotel_service.dtos.request.CreateReservationRequest;
 import org.example.hotel_service.dtos.request.UpdateReservationStatusRequest;
+import org.example.hotel_service.dtos.response.PaymentResponse;
 import org.example.hotel_service.dtos.response.ReservationCreatedResponse;
+import org.example.hotel_service.dtos.response.ReservationChargeResponse;
 import org.example.hotel_service.dtos.response.ReservationResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
 import org.example.hotel_service.entities.Hotel;
@@ -70,10 +72,12 @@ public class ReservationService implements ReservationServiceImp {
     @Transactional(readOnly = true)
     public List<RoomResponse> checkAvailability(CheckAvailabilityRequest request) {
         validateDateRange(request.getCheckInDate(), request.getCheckOutDate());
-        ensureHotelExists(request.getHotelId());
+
+        // Single-hotel: tự lấy hotel đầu tiên nếu client không gửi hotelId
+        Integer hotelId = resolveHotelId(request.getHotelId());
 
         List<Room> availableRooms = roomRepository.findAvailableRooms(
-                request.getHotelId(),
+                hotelId,
                 request.getCheckInDate(),
                 request.getCheckOutDate()
         );
@@ -100,12 +104,14 @@ public class ReservationService implements ReservationServiceImp {
         User guest = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        Hotel hotel = hotelRepository.findById(request.getHotelId())
+        // Single-hotel: tự lấy hotel đầu tiên nếu client không gửi hotelId
+        Integer hotelId = resolveHotelId(request.getHotelId());
+        Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
 
         int nights = (int) ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
         List<Room> availableRooms = roomRepository.findAvailableRooms(
-                request.getHotelId(),
+                hotelId,
                 request.getCheckInDate(),
                 request.getCheckOutDate()
         );
@@ -135,7 +141,7 @@ public class ReservationService implements ReservationServiceImp {
             RoomType roomType = roomTypeRepository.findById(reqItem.getRoomTypeId())
                     .orElseThrow(() -> new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND));
 
-            if (roomType.getHotel() == null || !Objects.equals(roomType.getHotel().getHotelId(), request.getHotelId())) {
+            if (roomType.getHotel() == null || !Objects.equals(roomType.getHotel().getHotelId(), hotelId)) {
                 throw new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND);
             }
 
@@ -326,6 +332,34 @@ public class ReservationService implements ReservationServiceImp {
         return toReservationResponse(reservationRepository.save(reservation));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getReservationPayments(Long reservationId, Jwt jwt) {
+        Reservation reservation = reservationRepository.findWithDetailsByReservationId(reservationId)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESERVATION_NOT_FOUND));
+
+        ensureReservationReadable(reservation, jwt);
+
+        return paymentRepository.findByReservation_ReservationIdOrderByPaidAtDescCreatedAtDesc(reservationId)
+                .stream()
+                .map(this::toPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReservationChargeResponse> getReservationCharges(Long reservationId, Jwt jwt) {
+        Reservation reservation = reservationRepository.findWithDetailsByReservationId(reservationId)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESERVATION_NOT_FOUND));
+
+        ensureReservationReadable(reservation, jwt);
+
+        return reservationChargeRepository.findByReservation_ReservationIdOrderByCreatedAtDesc(reservationId)
+                .stream()
+                .map(this::toChargeResponse)
+                .collect(Collectors.toList());
+    }
+
     private void applyStatusTransition(Reservation reservation, ReservationStatus targetStatus, String cancelReason, Jwt jwt) {
         LocalDateTime now = LocalDateTime.now();
         reservation.setStatus(targetStatus);
@@ -422,6 +456,18 @@ public class ReservationService implements ReservationServiceImp {
         }
     }
 
+    /**
+     * Single-hotel: nếu client không gửi hotelId thì tự lấy hotel đầu tiên.
+     */
+    private Integer resolveHotelId(Integer hotelId) {
+        if (hotelId != null) {
+            return hotelId;
+        }
+        Hotel hotel = hotelRepository.findFirstByOrderByHotelIdAsc()
+                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
+        return hotel.getHotelId();
+    }
+
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
     }
@@ -433,8 +479,6 @@ public class ReservationService implements ReservationServiceImp {
                 .status(reservation.getStatus() != null ? reservation.getStatus().name() : null)
                 .guestId(reservation.getGuest() != null ? reservation.getGuest().getUserId() : null)
                 .guestUsername(reservation.getGuest() != null ? reservation.getGuest().getUsername() : null)
-                .hotelId(reservation.getHotel() != null ? reservation.getHotel().getHotelId() : null)
-                .hotelName(reservation.getHotel() != null ? reservation.getHotel().getName() : null)
                 .checkInDate(reservation.getCheckInDate())
                 .checkOutDate(reservation.getCheckOutDate())
                 .nightsCount(reservation.getNightsCount())
@@ -477,8 +521,6 @@ public class ReservationService implements ReservationServiceImp {
     private RoomResponse toRoomResponse(Room room) {
         return RoomResponse.builder()
                 .roomId(room.getRoomId())
-                .hotelId(room.getHotel() != null ? room.getHotel().getHotelId() : null)
-                .hotelName(room.getHotel() != null ? room.getHotel().getName() : null)
                 .roomNumber(room.getRoomNumber())
                 .roomTypeId(room.getRoomType() != null ? room.getRoomType().getRoomTypeId() : null)
                 .roomTypeCode(room.getRoomType() != null ? room.getRoomType().getCode() : null)
@@ -491,6 +533,36 @@ public class ReservationService implements ReservationServiceImp {
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
                 .images(mapImages(room.getImages()))
+                .build();
+    }
+
+    private PaymentResponse toPaymentResponse(Payment payment) {
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .reservationId(payment.getReservation() != null ? payment.getReservation().getReservationId() : null)
+                .guestId(payment.getGuest() != null ? payment.getGuest().getUserId() : null)
+                .amount(payment.getAmount())
+                .method(payment.getMethod() != null ? payment.getMethod().name() : null)
+                .provider(payment.getProvider())
+                .providerTransId(payment.getProviderTransId())
+                .status(payment.getStatus() != null ? payment.getStatus().name() : null)
+                .note(payment.getNote())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
+                .updatedAt(payment.getUpdatedAt())
+                .build();
+    }
+
+    private ReservationChargeResponse toChargeResponse(ReservationCharge charge) {
+        return ReservationChargeResponse.builder()
+                .chargeId(charge.getChargeId())
+                .reservationId(charge.getReservation() != null ? charge.getReservation().getReservationId() : null)
+                .chargeType(charge.getChargeType() != null ? charge.getChargeType().name() : null)
+                .description(charge.getDescription())
+                .amount(charge.getAmount())
+                .createdByUserId(charge.getCreatedBy() != null ? charge.getCreatedBy().getUserId() : null)
+                .createdByUsername(charge.getCreatedBy() != null ? charge.getCreatedBy().getUsername() : null)
+                .createdAt(charge.getCreatedAt())
                 .build();
     }
 

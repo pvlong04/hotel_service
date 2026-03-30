@@ -6,7 +6,9 @@ import org.example.hotel_service.dtos.request.CreatePaymentRequest;
 import org.example.hotel_service.dtos.request.CreateReservationRequest;
 import org.example.hotel_service.dtos.request.UpdateReservationStatusRequest;
 import org.example.hotel_service.dtos.response.ReservationCreatedResponse;
+import org.example.hotel_service.dtos.response.ReservationChargeResponse;
 import org.example.hotel_service.dtos.response.ReservationResponse;
+import org.example.hotel_service.dtos.response.PaymentResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
 import org.example.hotel_service.enums.ReservationStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -29,4 +31,8 @@ public interface ReservationServiceImp {
     ReservationResponse createPayment(CreatePaymentRequest request, Jwt jwt);
 
     ReservationResponse createCharge(CreateChargeRequest request, Jwt jwt);
+
+    List<PaymentResponse> getReservationPayments(Long reservationId, Jwt jwt);
+
+    List<ReservationChargeResponse> getReservationCharges(Long reservationId, Jwt jwt);
 }

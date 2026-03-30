@@ -21,6 +21,7 @@ import org.example.hotel_service.entities.Role;
 import org.example.hotel_service.entities.User;
 import org.example.hotel_service.entities.UserRole;
 import org.example.hotel_service.enums.Roles;
+import org.example.hotel_service.enums.UserStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.mapper.UserMapper;
@@ -71,7 +72,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
         User user = userMapper.toUser(request);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
 
-        Role guestRole = roleRepository.findByName(org.example.hotel_service.enums.Roles.GUEST)
+        Role guestRole = roleRepository.findByName(Roles.GUEST)
                 .orElseGet(() -> roleRepository.save(Role.builder().name(Roles.GUEST).build()));
 
         Profile profile = Profile.builder()
@@ -104,6 +105,17 @@ public class AuthenticationService implements AuthenticationServiceImp {
         User user = userRepository.findWithProfileAndRolesByUsernameOrEmail(identifier, identifier)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_EXIT));
 
+//        if (user.getStatus() == UserStatus.PENDING) {
+//            throw new ApiException(ErrorCode.USER_INACTIVE);
+//        }
+//
+//        if (user.getStatus() == UserStatus.BANNED) {
+//            throw new ApiException(ErrorCode.USER_ALREADY_BANNED);
+//        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException(ErrorCode.USER_INACTIVE_BANE);
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new ApiException(ErrorCode.UNAUTHENTICATED);
         }
@@ -130,6 +142,9 @@ public class AuthenticationService implements AuthenticationServiceImp {
         refreshTokenRepository.save(storedToken);
 
         User user = storedToken.getUser();
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new ApiException(ErrorCode.   USER_ALREADY_BANNED);
+        }
         return getAuthResponse(userAgent, ipAddress, user);
     }
 

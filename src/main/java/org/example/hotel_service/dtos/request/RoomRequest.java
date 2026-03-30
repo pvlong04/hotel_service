@@ -16,8 +16,6 @@ import org.example.hotel_service.enums.RoomStatus;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomRequest {
 
-    @NotNull(message = "Hotel ID không được để trống")
-    Integer hotelId;
 
     @NotBlank(message = "Số phòng không được để trống")
     @Size(max = 50, message = "Số phòng không quá 50 ký tự")
@@ -32,4 +30,8 @@ public class RoomRequest {
 
     @Size(max = 500, message = "Ghi chú không quá 500 ký tự")
     String note;
+
+    /** URL hình ảnh đại diện của phòng */
+    @Size(max = 500, message = "URL hình ảnh không quá 500 ký tự")
+    String imageUrl;
 }

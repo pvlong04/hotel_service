@@ -9,7 +9,9 @@ import org.example.hotel_service.enums.ReservationStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Đơn đặt phòng (Booking/Reservation).
@@ -132,11 +134,11 @@ public class Reservation {
 
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    List<Payment> payments = new ArrayList<>();
+    Set<Payment> payments = new HashSet<>();
 
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    List<ReservationCharge> charges = new ArrayList<>();
+    Set<ReservationCharge> charges = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

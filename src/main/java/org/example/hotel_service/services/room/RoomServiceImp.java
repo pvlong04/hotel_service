@@ -10,7 +10,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface RoomServiceImp {
-    PageResponse<RoomResponse> getRooms(Integer hotelId, RoomStatus status, int page, int size);
+    PageResponse<RoomResponse> getAllRoom();
+
+    PageResponse<RoomResponse> getRooms(RoomStatus status, int page, int size);
 
     RoomResponse getRoomById(Long id);
 

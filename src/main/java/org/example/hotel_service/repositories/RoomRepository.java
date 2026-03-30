@@ -20,21 +20,24 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     @EntityGraph(attributePaths = {"hotel", "roomType", "floor", "images"})
     Optional<Room> findWithDetailsByRoomId(Long roomId);
 
-    @EntityGraph(attributePaths = {"hotel", "roomType", "floor", "images"})
-    Page<Room> findByHotel_HotelId(Integer hotelId, Pageable pageable);
+    @Query(value = "SELECT r FROM Room r LEFT JOIN FETCH r.roomType LEFT JOIN FETCH r.floor LEFT JOIN FETCH r.hotel",
+            countQuery = "SELECT COUNT(r) FROM Room r")
+    Page<Room> findAllBy(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"hotel", "roomType", "floor", "images"})
-    Page<Room> findByHotel_HotelIdAndStatus(Integer hotelId, RoomStatus status, Pageable pageable);
+    @Query(value = "SELECT r FROM Room r LEFT JOIN FETCH r.roomType LEFT JOIN FETCH r.floor LEFT JOIN FETCH r.hotel WHERE r.status = :status",
+            countQuery = "SELECT COUNT(r) FROM Room r WHERE r.status = :status")
+    Page<Room> findByStatus(@Param("status") RoomStatus status, Pageable pageable);
 
-    boolean existsByHotel_HotelIdAndRoomNumber(Integer hotelId, String roomNumber);
+    boolean existsByRoomNumber(String roomNumber);
 
-    boolean existsByHotel_HotelIdAndRoomNumberAndRoomIdNot(Integer hotelId, String roomNumber, Long roomId);
+    boolean existsByRoomNumberAndRoomIdNot(String roomNumber, Long roomId);
+
+    boolean existsByRoomType_RoomTypeId(Long roomTypeId);
 
     @EntityGraph(attributePaths = {"hotel", "roomType", "floor", "images"})
     @Query("""
             SELECT r FROM Room r
-            WHERE r.hotel.hotelId = :hotelId
-              AND r.status = 'AVAILABLE'
+            WHERE r.status = 'AVAILABLE'
               AND r.roomId NOT IN (
                   SELECT ri.room.roomId FROM ReservationItem ri
                   JOIN ri.reservation res

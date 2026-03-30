@@ -127,6 +127,16 @@ public class UserService implements UserServiceImp {
         return userRoles;
     }
 
+    private void validateCreateUserRoles(Set<Roles> requestRoles) {
+        // Business rule: ADMIN can only create STAFF accounts from this API.
+        if (requestRoles == null || requestRoles.isEmpty()) {
+            return;
+        }
+        if (requestRoles.size() != 1 || !requestRoles.contains(Roles.STAFF)) {
+            throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+        }
+    }
+
     // ─────────────────── CRUD ───────────────────
 
     @Override
@@ -190,6 +200,8 @@ public class UserService implements UserServiceImp {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }
 
+        validateCreateUserRoles(request.getRoles());
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new ApiException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
@@ -216,7 +228,7 @@ public class UserService implements UserServiceImp {
                 .build();
         user.setProfile(profile);
 
-        user.setUserRoles(buildUserRoles(request.getRoles(), user));
+        user.setUserRoles(buildUserRoles(Set.of(Roles.STAFF), user));
 
         User saved = userRepository.save(user);
         log.info("ADMIN {} created new user: {}", extractUserId(jwt), saved.getUserId());

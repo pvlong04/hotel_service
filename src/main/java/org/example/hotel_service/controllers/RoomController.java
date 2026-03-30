@@ -28,14 +28,20 @@ public class RoomController {
 
     RoomServiceImp roomService;
 
+
+    @GetMapping("/getAll")
+    public ResponseEntity<ApiResponse<PageResponse<RoomResponse>>> getAllRoom() {
+        PageResponse<RoomResponse> result = roomService.getAllRoom();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng thành công", result));
+    }
+
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<RoomResponse>>> getRooms(
-            @RequestParam(required = false) Integer hotelId,
             @RequestParam(required = false) RoomStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        PageResponse<RoomResponse> result = roomService.getRooms(hotelId, status, page, size);
+        PageResponse<RoomResponse> result = roomService.getRooms(status, page, size);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng thành công", result));
     }
 
@@ -45,7 +51,7 @@ public class RoomController {
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết phòng thành công", result));
     }
 
-    @PostMapping("/add_rooms")
+    @PostMapping({"", "/add_rooms"})
     public ResponseEntity<ApiResponse<RoomResponse>> createRoom(
             @Valid @RequestBody RoomRequest request,
             @AuthenticationPrincipal Jwt jwt
@@ -76,7 +82,7 @@ public class RoomController {
 
     @GetMapping("/available")
     public ResponseEntity<ApiResponse<List<RoomResponse>>> getAvailableRooms(
-            @RequestParam Integer hotelId,
+            @RequestParam(required = false) Integer hotelId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut
     ) {

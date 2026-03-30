@@ -23,8 +23,6 @@ public class ReservationResponse {
 
     Long guestId;
     String guestUsername;
-    Integer hotelId;
-    String hotelName;
 
     LocalDate checkInDate;
     LocalDate checkOutDate;

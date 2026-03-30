@@ -17,8 +17,6 @@ import java.util.List;
 public class RoomResponse {
 
     Long roomId;
-    Integer hotelId;
-    String hotelName;
     String roomNumber;
     Long roomTypeId;
     String roomTypeCode;

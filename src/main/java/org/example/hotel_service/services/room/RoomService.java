@@ -17,7 +17,6 @@ import org.example.hotel_service.enums.RoomStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.FloorRepository;
-import org.example.hotel_service.repositories.HotelRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
 import org.springframework.data.domain.Page;
@@ -41,23 +40,40 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RoomService implements RoomServiceImp {
     RoomRepository roomRepository;
-    HotelRepository hotelRepository;
     RoomTypeRepository roomTypeRepository;
     FloorRepository floorRepository;
 
+
+    @Override
+    @Transactional
+    public PageResponse<RoomResponse> getAllRoom() {
+        Pageable pageable = PageRequest.of(0, Integer.MAX_VALUE, Sort.by("createdAt").descending());
+        Page<Room> roomPage = roomRepository.findAllBy(pageable);
+
+        return PageResponse.<RoomResponse>builder()
+                .content(roomPage.getContent().stream().map(this::toResponse).collect(Collectors.toList()))
+                .page(roomPage.getNumber())
+                .size(roomPage.getSize())
+                .totalElements(roomPage.getTotalElements())
+                .totalPages(roomPage.getTotalPages())
+                .first(roomPage.isFirst())
+                .last(roomPage.isLast())
+                .hasNext(roomPage.hasNext())
+                .hasPrevious(roomPage.hasPrevious())
+                .build();
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<RoomResponse> getRooms(Integer hotelId, RoomStatus status, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Room> roomPage;
-
-        if (hotelId != null && status != null) {
-            roomPage = roomRepository.findByHotel_HotelIdAndStatus(hotelId, status, pageable);
-        } else if (hotelId != null) {
-            roomPage = roomRepository.findByHotel_HotelId(hotelId, pageable);
-        } else {
-            roomPage = roomRepository.findAll(pageable);
+    public PageResponse<RoomResponse> getRooms(RoomStatus status, int page, int size) {
+        if (page < 0 || size <= 0) {
+            throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
         }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Room> roomPage = status != null
+                ? roomRepository.findByStatus(status, pageable)
+                : roomRepository.findAllBy(pageable);
 
         return PageResponse.<RoomResponse>builder()
                 .content(roomPage.getContent().stream().map(this::toResponse).collect(Collectors.toList()))
@@ -84,31 +100,45 @@ public class RoomService implements RoomServiceImp {
     @Transactional
     public RoomResponse createRoom(RoomRequest request, Jwt jwt) {
         requireAnyRole(jwt, Roles.ADMIN);
+        String normalizedRoomNumber = normalizeRoomNumber(request.getRoomNumber());
 
-        Hotel hotel = hotelRepository.findById(request.getHotelId())
-                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
-
-        if (roomRepository.existsByHotel_HotelIdAndRoomNumber(hotel.getHotelId(), request.getRoomNumber())) {
+        if (roomRepository.existsByRoomNumber(normalizedRoomNumber)) {
             throw new ApiException(ErrorCode.ROOM_ALREADY_EXISTS);
         }
 
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND));
 
-        validateRoomTypeBelongsToHotel(roomType, hotel.getHotelId());
-
-        Floor floor = resolveFloor(request.getFloorId(), hotel.getHotelId());
+        Floor floor = resolveFloor(request.getFloorId());
+        Hotel hotel = roomType.getHotel();
+        if (hotel == null) {
+            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
+        }
 
         Room room = Room.builder()
                 .hotel(hotel)
-                .roomNumber(request.getRoomNumber())
+                .roomNumber(normalizedRoomNumber)
                 .roomType(roomType)
                 .floor(floor)
                 .status(request.getStatus() != null ? request.getStatus() : RoomStatus.AVAILABLE)
-                .note(request.getNote())
+                .note(normalizeNote(request.getNote()))
                 .build();
 
         Room saved = roomRepository.save(room);
+
+        // Save image if provided
+        if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
+            RoomImage image = RoomImage.builder()
+                    .room(saved)
+                    .url(request.getImageUrl().trim())
+                    .caption("Ảnh phòng " + normalizedRoomNumber)
+                    .isPrimary(true)
+                    .sortOrder(0)
+                    .build();
+            saved.getImages().add(image);
+            saved = roomRepository.save(saved);
+        }
+
         return toResponse(saved);
     }
 
@@ -120,25 +150,40 @@ public class RoomService implements RoomServiceImp {
         Room room = roomRepository.findWithDetailsByRoomId(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
 
-        Hotel hotel = hotelRepository.findById(request.getHotelId())
-                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
+        String normalizedRoomNumber = normalizeRoomNumber(request.getRoomNumber());
 
-        if (roomRepository.existsByHotel_HotelIdAndRoomNumberAndRoomIdNot(hotel.getHotelId(), request.getRoomNumber(), id)) {
+        if (roomRepository.existsByRoomNumberAndRoomIdNot(normalizedRoomNumber, id)) {
             throw new ApiException(ErrorCode.ROOM_ALREADY_EXISTS);
         }
 
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND));
-        validateRoomTypeBelongsToHotel(roomType, hotel.getHotelId());
-
-        Floor floor = resolveFloor(request.getFloorId(), hotel.getHotelId());
+        Floor floor = resolveFloor(request.getFloorId());
+        Hotel hotel = roomType.getHotel();
+        if (hotel == null) {
+            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
+        }
 
         room.setHotel(hotel);
-        room.setRoomNumber(request.getRoomNumber());
+        room.setRoomNumber(normalizedRoomNumber);
         room.setRoomType(roomType);
         room.setFloor(floor);
         room.setStatus(request.getStatus() != null ? request.getStatus() : room.getStatus());
-        room.setNote(request.getNote());
+        room.setNote(normalizeNote(request.getNote()));
+
+        // Update image if provided
+        if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
+            // Remove old primary images and add new one
+            room.getImages().removeIf(RoomImage::getIsPrimary);
+            RoomImage image = RoomImage.builder()
+                    .room(room)
+                    .url(request.getImageUrl().trim())
+                    .caption("Ảnh phòng " + normalizedRoomNumber)
+                    .isPrimary(true)
+                    .sortOrder(0)
+                    .build();
+            room.getImages().add(image);
+        }
 
         Room saved = roomRepository.save(room);
         return toResponse(saved);
@@ -156,10 +201,9 @@ public class RoomService implements RoomServiceImp {
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponse> getAvailableRooms(Integer hotelId, LocalDate checkIn, LocalDate checkOut) {
-        if (hotelId == null || checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
+        if (checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
             throw new ApiException(ErrorCode.INVALID_DATE_RANGE);
         }
-
         List<Room> rooms = roomRepository.findAvailableRooms(hotelId, checkIn, checkOut);
         return rooms.stream().map(this::toResponse).collect(Collectors.toList());
     }
@@ -172,22 +216,24 @@ public class RoomService implements RoomServiceImp {
         return mapImages(room.getImages());
     }
 
-    private Floor resolveFloor(Integer floorId, Integer hotelId) {
+    private String normalizeRoomNumber(String roomNumber) {
+        return roomNumber == null ? null : roomNumber.trim();
+    }
+
+    private String normalizeNote(String note) {
+        if (note == null) {
+            return null;
+        }
+        String normalized = note.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private Floor resolveFloor(Integer floorId) {
         if (floorId == null) {
             return null;
         }
-        Floor floor = floorRepository.findById(floorId)
+        return floorRepository.findById(floorId)
                 .orElseThrow(() -> new ApiException(ErrorCode.FLOOR_NOT_FOUND));
-        if (floor.getHotel() == null || !hotelId.equals(floor.getHotel().getHotelId())) {
-            throw new ApiException(ErrorCode.FLOOR_NOT_FOUND);
-        }
-        return floor;
-    }
-
-    private void validateRoomTypeBelongsToHotel(RoomType roomType, Integer hotelId) {
-        if (roomType.getHotel() == null || !hotelId.equals(roomType.getHotel().getHotelId())) {
-            throw new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND);
-        }
     }
 
     private Set<String> extractRoles(Jwt jwt) {
@@ -196,7 +242,7 @@ public class RoomService implements RoomServiceImp {
             Set<String> roles = new HashSet<>();
             for (Object item : iterable) {
                 if (item != null) {
-                    roles.add(item.toString());
+                    roles.add(item.toString().toUpperCase());
                 }
             }
             if (!roles.isEmpty()) {
@@ -206,7 +252,7 @@ public class RoomService implements RoomServiceImp {
 
         Object roleObj = jwt.getClaims().get("role");
         if (roleObj != null) {
-            return Set.of(roleObj.toString());
+            return Set.of(roleObj.toString().toUpperCase());
         }
         return Set.of();
     }
@@ -224,8 +270,6 @@ public class RoomService implements RoomServiceImp {
     private RoomResponse toResponse(Room room) {
         return RoomResponse.builder()
                 .roomId(room.getRoomId())
-                .hotelId(room.getHotel() != null ? room.getHotel().getHotelId() : null)
-                .hotelName(room.getHotel() != null ? room.getHotel().getName() : null)
                 .roomNumber(room.getRoomNumber())
                 .roomTypeId(room.getRoomType() != null ? room.getRoomType().getRoomTypeId() : null)
                 .roomTypeCode(room.getRoomType() != null ? room.getRoomType().getCode() : null)

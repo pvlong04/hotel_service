@@ -10,7 +10,9 @@ import org.example.hotel_service.dtos.request.CreateChargeRequest;
 import org.example.hotel_service.dtos.request.CreatePaymentRequest;
 import org.example.hotel_service.dtos.request.CreateReservationRequest;
 import org.example.hotel_service.dtos.request.UpdateReservationStatusRequest;
+import org.example.hotel_service.dtos.response.PaymentResponse;
 import org.example.hotel_service.dtos.response.ReservationCreatedResponse;
+import org.example.hotel_service.dtos.response.ReservationChargeResponse;
 import org.example.hotel_service.dtos.response.ReservationResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
 import org.example.hotel_service.enums.ReservationStatus;
@@ -77,7 +79,7 @@ public class ReservationController {
             @RequestParam(required = false) ReservationStatus status,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        List<ReservationResponse> result = reservationService.getReservations(hotelId, status, jwt);
+        List<ReservationResponse> result = reservationService.getReservations(hotelId,status, jwt);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đặt phòng thành công", result));
     }
 
@@ -107,6 +109,24 @@ public class ReservationController {
     ) {
         ReservationResponse result = reservationService.createCharge(request, jwt);
         return ResponseEntity.ok(ApiResponse.success("Thêm phụ phí thành công", result));
+    }
+
+    @GetMapping("/{reservationId}/payments")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getReservationPayments(
+            @PathVariable Long reservationId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        List<PaymentResponse> result = reservationService.getReservationPayments(reservationId, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử thanh toán thành công", result));
+    }
+
+    @GetMapping("/{reservationId}/charges")
+    public ResponseEntity<ApiResponse<List<ReservationChargeResponse>>> getReservationCharges(
+            @PathVariable Long reservationId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        List<ReservationChargeResponse> result = reservationService.getReservationCharges(reservationId, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử phụ phí dịch vụ thành công", result));
     }
 }
 

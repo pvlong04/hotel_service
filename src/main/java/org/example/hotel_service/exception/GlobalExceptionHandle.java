@@ -2,6 +2,8 @@ package org.example.hotel_service.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.api.ApiResponse;
+import org.hibernate.boot.model.naming.IllegalIdentifierException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -24,6 +26,26 @@ public class GlobalExceptionHandle {
                 .message(ErrorCode.UNCATEGORIZED_EXIT.getMessage())
                 .build();
         return ResponseEntity.internalServerError().body(response);
+    }
+
+    @ExceptionHandler(value = InvalidDataAccessApiUsageException.class)
+    ResponseEntity<ApiResponse<?>> handingInvalidDataAccessApiUsageException(Exception exception) {
+        ApiResponse<?> response = ApiResponse.builder()
+                .code(ErrorCode.INVALID_DATA_ACCESS.getCode())
+                .message(ErrorCode.INVALID_DATA_ACCESS.getMessage())
+                .build();
+        log.warn("Invalid data access: {}", exception.getMessage());
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(value = IllegalArgumentException.class)
+    ResponseEntity<ApiResponse<?>> handingIllegalArgumentException(IllegalIdentifierException exception) {
+        log.warn("Illegal argument: {}", exception.getMessage());
+        ApiResponse<?> apiResponse = ApiResponse.builder()
+                .code(ErrorCode.ILLEGAL_ARGUMENT.getCode())
+                .message(ErrorCode.ILLEGAL_ARGUMENT.getMessage())
+                .build();
+        return ResponseEntity.badRequest().body(apiResponse);
     }
 
     @ExceptionHandler(value = ApiException.class)

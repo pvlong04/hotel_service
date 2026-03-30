@@ -1,5 +1,6 @@
 package org.example.hotel_service.repositories;
 
+import org.example.hotel_service.entities.Hotel;
 import org.example.hotel_service.entities.Reservation;
 import org.example.hotel_service.enums.ReservationStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -15,6 +16,10 @@ import java.util.Optional;
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
+    List<Reservation> findByHotel_HotelIdAndStatusOrderByCreatedAtDesc(Integer hotel_hotelId, ReservationStatus status);
+
+    List<Reservation> findByHotel_HotelIdOrderByCreatedAtDesc(Integer hotelId);
+
     @EntityGraph(attributePaths = {
             "guest", "hotel", "items", "items.room", "items.roomType", "payments", "charges"
     })
@@ -24,10 +29,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByGuest_UserIdOrderByCreatedAtDesc(Long userId);
 
     @EntityGraph(attributePaths = {"guest", "hotel", "items", "items.room", "items.roomType"})
-    List<Reservation> findByHotel_HotelIdOrderByCreatedAtDesc(Integer hotelId);
+    List<Reservation> findAllByOrderByCreatedAtDesc();
 
     @EntityGraph(attributePaths = {"guest", "hotel", "items", "items.room", "items.roomType"})
-    List<Reservation> findByHotel_HotelIdAndStatusOrderByCreatedAtDesc(Integer hotelId, ReservationStatus status);
+    List<Reservation> findByStatusOrderByCreatedAtDesc(ReservationStatus status);
 
     @Query("""
             SELECT CASE WHEN COUNT(ri) > 0 THEN true ELSE false END

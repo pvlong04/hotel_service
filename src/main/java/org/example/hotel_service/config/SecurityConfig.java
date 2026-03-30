@@ -32,6 +32,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, PUBLIC_URL )
                 .permitAll()
 
+                // Public GET endpoints
+                .requestMatchers(HttpMethod.GET, "/rooms/**", "/room-types/**", "/amenities/**")
+                .permitAll()
+
 //                .requestMatchers(HttpMethod.GET, PUBLIC_URL_USER).permitAll()
 
                 .anyRequest().authenticated());
@@ -40,6 +44,15 @@ public class SecurityConfig {
         httpSecurity.oauth2ResourceServer(oauth2 ->
                 oauth2.jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder()))
         );
+
+        httpSecurity.cors(cors -> cors.configurationSource(request -> {
+            var config = new org.springframework.web.cors.CorsConfiguration();
+            config.setAllowedOrigins(java.util.List.of("http://localhost:5173", "http://localhost:3000"));
+            config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+            config.setAllowedHeaders(java.util.List.of("*"));
+            config.setAllowCredentials(true);
+            return config;
+        }));
 
         httpSecurity.csrf(AbstractHttpConfigurer::disable);
         return httpSecurity.build();
