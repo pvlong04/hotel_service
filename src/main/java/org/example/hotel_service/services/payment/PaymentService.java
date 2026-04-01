@@ -4,8 +4,10 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.example.hotel_service.config.VnPayProperties;
+import org.example.hotel_service.dtos.request.VnPayCreateRequest;
 import org.example.hotel_service.dtos.response.PaymentResponse;
-import org.example.hotel_service.dtos.response.QrPaymentResponse;
+import org.example.hotel_service.dtos.response.VnPayCreateResponse;
 import org.example.hotel_service.entities.Payment;
 import org.example.hotel_service.entities.Reservation;
 import org.example.hotel_service.enums.PaymentMethod;
@@ -20,12 +22,20 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,89 +45,154 @@ public class PaymentService implements PaymentServiceImp {
 
     PaymentRepository paymentRepository;
     ReservationRepository reservationRepository;
+    VnPayProperties vnPayProperties;
 
-    // =====================  Thông tin mô phỏng ngân hàng  =====================
-    private static final String BANK_NAME = "VIETCOMBANK";
-    private static final String BANK_ACCOUNT = "1234567890";
-    private static final String BANK_ACCOUNT_NAME = "HOTEL GRAND LUXURY";
 
-    // =========================================================================
-
-    @Override
     @Transactional
-    public QrPaymentResponse generateQrPayment(Long reservationId, Long amount, Jwt jwt) {
+    public VnPayCreateResponse createVnPayPayment(VnPayCreateRequest request, String clientIp, Jwt jwt) {
+        Long reservationId = request.getReservationId();
+        Long amount = request.getAmount();
+
         Reservation reservation = reservationRepository.findWithDetailsByReservationId(reservationId)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESERVATION_NOT_FOUND));
 
-        // Kiểm tra quyền truy cập
         ensureReservationReadable(reservation, jwt);
 
-        // Không cho thanh toán đơn đã hủy
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
             throw new ApiException(ErrorCode.RESERVATION_STATUS_TRANSITION_INVALID);
         }
 
-        // Kiểm tra số tiền hợp lệ
         long remaining = Math.max(0L, reservation.getTotalAmount() - reservation.getPaidAmount());
         if (amount == null || amount <= 0 || amount > remaining) {
             throw new ApiException(ErrorCode.PAYMENT_AMOUNT_INVALID);
         }
 
-        // Tạo mã giao dịch mô phỏng
-        String transId = "QR" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+        validateVnPayConfig();
 
-        // Tạo bản ghi Payment trạng thái PENDING
+        String txnRef = reservation.getReservationCode() + "_" + System.currentTimeMillis();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusMinutes(15);
+
         Payment payment = Payment.builder()
                 .reservation(reservation)
                 .guest(reservation.getGuest())
                 .amount(amount)
-                .method(PaymentMethod.QR_CODE)
-                .provider("QR_SIMULATOR")
-                .providerTransId(transId)
+                .method(PaymentMethod.ONLINE)
+                .provider("VNPAY")
+                .providerTransId(txnRef)
                 .status(PaymentStatus.PENDING)
-                .note("Thanh toán QR mô phỏng")
+                .note("Khoi tao thanh toan VNPay")
                 .build();
 
         Payment saved = paymentRepository.save(payment);
 
-        // Tạo nội dung QR mô phỏng (giống VietQR format đơn giản)
-        String qrContent = buildQrContent(reservation.getReservationCode(), amount, transId);
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(15);
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("vnp_Version", vnPayProperties.getVersion());
+        params.put("vnp_Command", vnPayProperties.getCommand());
+        params.put("vnp_TmnCode", vnPayProperties.getTmnCode());
+        params.put("vnp_Amount", String.valueOf(amount * 100));
+        params.put("vnp_CreateDate", formatDate(now));
+        params.put("vnp_CurrCode", vnPayProperties.getCurrCode());
+        params.put("vnp_IpAddr", (clientIp == null || clientIp.isBlank()) ? "127.0.0.1" : clientIp);
+        params.put("vnp_Locale", vnPayProperties.getLocale());
+        params.put("vnp_OrderInfo", "Thanh toan dat phong " + reservation.getReservationCode());
+        params.put("vnp_OrderType", vnPayProperties.getOrderType());
+        params.put("vnp_ReturnUrl", vnPayProperties.getReturnUrl());
+        params.put("vnp_TxnRef", txnRef);
+        params.put("vnp_ExpireDate", formatDate(expiresAt));
 
-        return QrPaymentResponse.builder()
+        String hashData = buildVnPayHashData(params);
+        String queryData = buildVnPayQuery(params);
+        String secureHash = hmacSha512(vnPayProperties.getHashSecret(), hashData);
+        String paymentUrl = vnPayProperties.getPayUrl() + "?" + queryData + "&vnp_SecureHash=" + secureHash;
+        String qrImage = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encode(paymentUrl);
+
+        return VnPayCreateResponse.builder()
                 .paymentId(saved.getPaymentId())
                 .reservationId(reservationId)
                 .amount(amount)
                 .status(saved.getStatus().name())
-                .qrContent(qrContent)
+                .txnRef(txnRef)
+                .paymentUrl(paymentUrl)
+                .qrContent(paymentUrl)
+                .qrImage(qrImage)
                 .expiresAt(expiresAt)
                 .createdAt(saved.getCreatedAt())
                 .build();
     }
 
-    @Override
     @Transactional
-    public PaymentResponse confirmQrPayment(Long paymentId, Jwt jwt) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_NOT_FOUND));
-
-        if (payment.getStatus() == PaymentStatus.COMPLETED) {
-            throw new ApiException(ErrorCode.PAYMENT_ALREADY_COMPLETED);
+    public PaymentResponse confirmVnPayPayment(Map<String, String> callbackParams, Jwt jwt) {
+        validateVnPayConfig();
+        if (callbackParams == null || callbackParams.isEmpty()) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
 
-        // Cập nhật trạng thái thanh toán
+        String secureHash = callbackParams.get("vnp_SecureHash");
+        if (secureHash == null || secureHash.isBlank()) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Map<String, String> signData = callbackParams.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && entry.getKey().startsWith("vnp_"))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (a, b) -> b,
+                        LinkedHashMap::new
+                ));
+        signData.remove("vnp_SecureHash");
+        signData.remove("vnp_SecureHashType");
+        String expectedHash = hmacSha512(vnPayProperties.getHashSecret(), buildVnPayHashData(signData));
+        if (!expectedHash.equalsIgnoreCase(secureHash)) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String txnRef = callbackParams.get("vnp_TxnRef");
+        if (txnRef == null || txnRef.isBlank()) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Payment payment = paymentRepository.findByProviderTransId(txnRef)
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        if (jwt != null) {
+            ensureReservationReadable(payment.getReservation(), jwt);
+        }
+
+        Long paidAmountFromGateway = parseVnpAmount(callbackParams.get("vnp_Amount"));
+        if (paidAmountFromGateway == null || !Objects.equals(paidAmountFromGateway, payment.getAmount())) {
+            throw new ApiException(ErrorCode.PAYMENT_AMOUNT_INVALID);
+        }
+
+        String responseCode = callbackParams.get("vnp_ResponseCode");
+        String transactionStatus = callbackParams.get("vnp_TransactionStatus");
+        boolean success = "00".equals(responseCode) && "00".equals(transactionStatus);
+
+        if (payment.getStatus() == PaymentStatus.COMPLETED || payment.getStatus() == PaymentStatus.FAILED) {
+            return toPaymentResponse(payment);
+        }
+
+        if (!success) {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setNote("VNPay thanh toan that bai. Code=" + (responseCode != null ? responseCode : "N/A"));
+            return toPaymentResponse(paymentRepository.save(payment));
+        }
+
         payment.setStatus(PaymentStatus.COMPLETED);
         payment.setPaidAt(LocalDateTime.now());
-        payment.setNote("Thanh toán QR thành công (mô phỏng)");
+        payment.setNote("VNPay thanh toan thanh cong");
         Payment saved = paymentRepository.save(payment);
 
-        // Cập nhật paidAmount của Reservation
         Reservation reservation = payment.getReservation();
-        reservation.setPaidAmount(reservation.getPaidAmount() + payment.getAmount());
+        reservation.setPaidAmount(Math.min(
+                reservation.getTotalAmount(),
+                reservation.getPaidAmount() + payment.getAmount()
+        ));
         reservationRepository.save(reservation);
 
-        log.info("QR Payment confirmed: paymentId={}, amount={}, reservationId={}",
-                paymentId, payment.getAmount(), reservation.getReservationId());
+        log.info("VNPay payment confirmed: paymentId={}, amount={}, reservationId={}",
+                payment.getPaymentId(), payment.getAmount(), reservation.getReservationId());
 
         return toPaymentResponse(saved);
     }
@@ -128,39 +203,80 @@ public class PaymentService implements PaymentServiceImp {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        // Kiểm tra quyền: admin/staff luôn xem được, guest chỉ xem của mình
         ensureReservationReadable(payment.getReservation(), jwt);
 
         return toPaymentResponse(payment);
     }
 
-    // ========================  Helper methods  ========================
-
-    /**
-     * Tạo URL VietQR – QR chuyển khoản ngân hàng chuẩn Napas  
-     * Format: https://img.vietqr.io/image/{BANK_BIN}-{ACCOUNT_NO}-{TEMPLATE}.png?amount={AMOUNT}&addInfo={DESC}
-     */
-    private String buildQrContent(String reservationCode, Long amount, String transId) {
-        // VietQR format with Vietcombank (BIN: 970436)
-        String bankBin = "970436";  // VIETCOMBANK
-        String accountNo = BANK_ACCOUNT;
-        String template = "compact2";
-        String description = "Thanh toan " + reservationCode;
-
-        try {
-            String encodedDesc = java.net.URLEncoder.encode(description, "UTF-8");
-            return String.format(
-                    "https://img.vietqr.io/image/%s-%s-%s.png?amount=%d&addInfo=%s&accountName=%s",
-                    bankBin, accountNo, template, amount, encodedDesc,
-                    java.net.URLEncoder.encode(BANK_ACCOUNT_NAME, "UTF-8")
-            );
-        } catch (java.io.UnsupportedEncodingException e) {
-            // Fallback – plain URL without encoding
-            return String.format(
-                    "https://img.vietqr.io/image/%s-%s-%s.png?amount=%d&addInfo=%s",
-                    bankBin, accountNo, template, amount, description.replace(" ", "+")
-            );
+    private void validateVnPayConfig() {
+        if (isBlank(vnPayProperties.getTmnCode()) || isBlank(vnPayProperties.getHashSecret()) || isBlank(vnPayProperties.getPayUrl())) {
+            throw new ApiException(ErrorCode.KEY_VALID);
         }
+    }
+
+    private String formatDate(LocalDateTime time) {
+        return DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(time);
+    }
+
+    private String buildVnPayHashData(Map<String, String> params) {
+        List<Map.Entry<String, String>> sortedEntries = new ArrayList<>(params.entrySet());
+        sortedEntries.sort(Map.Entry.comparingByKey());
+        return sortedEntries.stream()
+                .filter(e -> e.getValue() != null && !e.getValue().isBlank())
+                .map(e -> e.getKey() + "=" + asciiEncode(e.getValue()))
+                .collect(Collectors.joining("&"));
+    }
+
+    private String buildVnPayQuery(Map<String, String> params) {
+        List<Map.Entry<String, String>> sortedEntries = new ArrayList<>(params.entrySet());
+        sortedEntries.sort(Map.Entry.comparingByKey());
+        return sortedEntries.stream()
+                .filter(e -> e.getValue() != null && !e.getValue().isBlank())
+                .map(e -> asciiEncode(e.getKey()) + "=" + asciiEncode(e.getValue()))
+                .collect(Collectors.joining("&"));
+    }
+
+    private String asciiEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private String hmacSha512(String key, String data) {
+        try {
+            Mac hmac = Mac.getInstance("HmacSHA512");
+            SecretKeySpec secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA512");
+            hmac.init(secretKey);
+            byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            throw new ApiException(ErrorCode.UNCATEGORIZED_EXIT);
+        }
+    }
+
+    private Long parseVnpAmount(String rawValue) {
+        if (isBlank(rawValue)) {
+            return null;
+        }
+        try {
+            long amount = Long.parseLong(rawValue);
+            if (amount <= 0 || amount % 100 != 0) {
+                return null;
+            }
+            return amount / 100;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void ensureReservationReadable(Reservation reservation, Jwt jwt) {
@@ -175,18 +291,22 @@ public class PaymentService implements PaymentServiceImp {
 
     private Long extractUserId(Jwt jwt) {
         Object userIdClaim = jwt.getClaims().get("userId");
-        if (userIdClaim instanceof Number number) {
-            return number.longValue();
+        if (userIdClaim instanceof Number) {
+            return ((Number) userIdClaim).longValue();
         }
-        if (userIdClaim instanceof String text && !text.isBlank()) {
-            return Long.parseLong(text);
+        if (userIdClaim instanceof String) {
+            String text = (String) userIdClaim;
+            if (!text.trim().isEmpty()) {
+                return Long.parseLong(text);
+            }
         }
         throw new ApiException(ErrorCode.UNAUTHENTICATED);
     }
 
     private Set<String> extractRoles(Jwt jwt) {
         Object rolesObj = jwt.getClaims().get("roles");
-        if (rolesObj instanceof Iterable<?> iterable) {
+        if (rolesObj instanceof Iterable) {
+            Iterable<?> iterable = (Iterable<?>) rolesObj;
             Set<String> roles = new HashSet<>();
             for (Object item : iterable) {
                 if (item != null) {

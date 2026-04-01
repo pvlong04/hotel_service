@@ -75,11 +75,10 @@ public class ReservationController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ReservationResponse>>> getReservations(
-            @RequestParam(required = false) Integer hotelId,
             @RequestParam(required = false) ReservationStatus status,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        List<ReservationResponse> result = reservationService.getReservations(hotelId,status, jwt);
+        List<ReservationResponse> result = reservationService.getReservations(status, jwt);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đặt phòng thành công", result));
     }
 
@@ -128,5 +127,6 @@ public class ReservationController {
         List<ReservationChargeResponse> result = reservationService.getReservationCharges(reservationId, jwt);
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử phụ phí dịch vụ thành công", result));
     }
+
 }
 

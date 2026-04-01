@@ -11,12 +11,22 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandle {
+    @ExceptionHandler(value = RuntimeException.class)
+    ResponseEntity<ApiResponse<?>> handingRuntimeException(RuntimeException exception) {
+        log.error("Runtime error occurred: ", exception);
+        ApiResponse<?> response = ApiResponse.builder()
+                .code(ErrorCode.RUNTIME_ERROR.getCode())
+                .message(ErrorCode.RUNTIME_ERROR.getMessage())
+                .build();
+        return ResponseEntity.internalServerError().body(response);
+    }
 
     @ExceptionHandler(value = Exception.class)
     ResponseEntity<ApiResponse<?>> handingException(Exception exception) {
@@ -24,6 +34,16 @@ public class GlobalExceptionHandle {
         ApiResponse<?> response = ApiResponse.builder()
                 .code(ErrorCode.UNCATEGORIZED_EXIT.getCode())
                 .message(ErrorCode.UNCATEGORIZED_EXIT.getMessage())
+                .build();
+        return ResponseEntity.internalServerError().body(response);
+    }
+
+    @ExceptionHandler(value = SQLException.class)
+    ResponseEntity<ApiResponse<?>> handingSQLException(SQLException exception) {
+        log.error("Database error occurred: ", exception);
+        ApiResponse<?> response = ApiResponse.builder()
+                .code(ErrorCode.UNCATEGORIZED_EXIT.getCode())
+                .message("Lỗi cơ sở dữ liệu")
                 .build();
         return ResponseEntity.internalServerError().body(response);
     }

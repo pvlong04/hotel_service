@@ -46,9 +46,6 @@ public class Reservation {
     @JoinColumn(name = "guest_id", nullable = false)
     User guest;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id", nullable = false)
-    Hotel hotel;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

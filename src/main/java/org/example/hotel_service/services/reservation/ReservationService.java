@@ -8,13 +8,13 @@ import org.example.hotel_service.dtos.request.CheckAvailabilityRequest;
 import org.example.hotel_service.dtos.request.CreateChargeRequest;
 import org.example.hotel_service.dtos.request.CreatePaymentRequest;
 import org.example.hotel_service.dtos.request.CreateReservationRequest;
+//import org.example.hotel_service.dtos.request.CreateZaloPayPayloadRequest;
 import org.example.hotel_service.dtos.request.UpdateReservationStatusRequest;
 import org.example.hotel_service.dtos.response.PaymentResponse;
 import org.example.hotel_service.dtos.response.ReservationCreatedResponse;
 import org.example.hotel_service.dtos.response.ReservationChargeResponse;
 import org.example.hotel_service.dtos.response.ReservationResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
-import org.example.hotel_service.entities.Hotel;
 import org.example.hotel_service.entities.Payment;
 import org.example.hotel_service.entities.Reservation;
 import org.example.hotel_service.entities.ReservationCharge;
@@ -28,15 +28,16 @@ import org.example.hotel_service.enums.ReservationItemStatus;
 import org.example.hotel_service.enums.ReservationStatus;
 import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.enums.RoomStatus;
+import org.example.hotel_service.enums.UserStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
-import org.example.hotel_service.repositories.HotelRepository;
 import org.example.hotel_service.repositories.PaymentRepository;
 import org.example.hotel_service.repositories.ReservationChargeRepository;
 import org.example.hotel_service.repositories.ReservationRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
 import org.example.hotel_service.repositories.UserRepository;
+import org.example.hotel_service.services.email.EmailService;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,23 +62,19 @@ import java.util.stream.Collectors;
 public class ReservationService implements ReservationServiceImp {
 
     ReservationRepository reservationRepository;
-    HotelRepository hotelRepository;
     UserRepository userRepository;
     RoomRepository roomRepository;
     RoomTypeRepository roomTypeRepository;
     PaymentRepository paymentRepository;
     ReservationChargeRepository reservationChargeRepository;
+    EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponse> checkAvailability(CheckAvailabilityRequest request) {
         validateDateRange(request.getCheckInDate(), request.getCheckOutDate());
 
-        // Single-hotel: tự lấy hotel đầu tiên nếu client không gửi hotelId
-        Integer hotelId = resolveHotelId(request.getHotelId());
-
         List<Room> availableRooms = roomRepository.findAvailableRooms(
-                hotelId,
                 request.getCheckInDate(),
                 request.getCheckOutDate()
         );
@@ -100,18 +97,10 @@ public class ReservationService implements ReservationServiceImp {
     public ReservationCreatedResponse createReservation(CreateReservationRequest request, Jwt jwt) {
         validateDateRange(request.getCheckInDate(), request.getCheckOutDate());
 
-        Long userId = extractUserId(jwt);
-        User guest = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
-        // Single-hotel: tự lấy hotel đầu tiên nếu client không gửi hotelId
-        Integer hotelId = resolveHotelId(request.getHotelId());
-        Hotel hotel = hotelRepository.findById(hotelId)
-                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
+        User guest = resolveGuestForReservation(request, jwt);
 
         int nights = (int) ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
         List<Room> availableRooms = roomRepository.findAvailableRooms(
-                hotelId,
                 request.getCheckInDate(),
                 request.getCheckOutDate()
         );
@@ -122,7 +111,6 @@ public class ReservationService implements ReservationServiceImp {
         Reservation reservation = Reservation.builder()
                 .reservationCode(generateReservationCode())
                 .guest(guest)
-                .hotel(hotel)
                 .status(ReservationStatus.PENDING)
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
@@ -140,10 +128,6 @@ public class ReservationService implements ReservationServiceImp {
         for (CreateReservationRequest.ReservationRoomItem reqItem : request.getRooms()) {
             RoomType roomType = roomTypeRepository.findById(reqItem.getRoomTypeId())
                     .orElseThrow(() -> new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND));
-
-            if (roomType.getHotel() == null || !Objects.equals(roomType.getHotel().getHotelId(), hotelId)) {
-                throw new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND);
-            }
 
             Room selectedRoom;
             if (reqItem.getRoomId() != null) {
@@ -182,6 +166,12 @@ public class ReservationService implements ReservationServiceImp {
         reservation.setTotalAmount(total);
         Reservation saved = reservationRepository.save(reservation);
 
+        try {
+            emailService.sendBookingConfirmationEmail(saved);
+        } catch (Exception ex) {
+            log.warn("Booking confirmation email failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
+        }
+
         return ReservationCreatedResponse.builder()
                 .reservationId(saved.getReservationId())
                 .reservationCode(saved.getReservationCode())
@@ -193,6 +183,44 @@ public class ReservationService implements ReservationServiceImp {
                 .paidAmount(saved.getPaidAmount())
                 .message("Tạo đơn đặt phòng thành công")
                 .build();
+    }
+
+    private User resolveGuestForReservation(CreateReservationRequest request, Jwt jwt) {
+        Long actorId = extractUserId(jwt);
+        User actor = userRepository.findById(actorId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+
+        boolean isStaffOrAdmin = hasAnyRole(jwt, Roles.STAFF, Roles.ADMIN);
+        Long targetGuestId = request.getGuestId();
+
+        if (!isStaffOrAdmin) {
+            if (targetGuestId != null && !Objects.equals(targetGuestId, actorId)) {
+                throw new ApiException(ErrorCode.ACCESS_DENIED);
+            }
+            ensureActiveGuest(actor);
+            return actor;
+        }
+
+        if (targetGuestId == null) {
+            ensureActiveGuest(actor);
+            return actor;
+        }
+
+        User guest = userRepository.findById(targetGuestId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+        ensureActiveGuest(guest);
+        return guest;
+    }
+
+    private void ensureActiveGuest(User user) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException(ErrorCode.USER_INACTIVE_BANE);
+        }
+        boolean isGuest = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(userRole -> userRole.getRole() != null && userRole.getRole().getName() == Roles.GUEST);
+        if (!isGuest) {
+            throw new ApiException(ErrorCode.ACCESS_DENIED);
+        }
     }
 
     @Override
@@ -216,14 +244,12 @@ public class ReservationService implements ReservationServiceImp {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservations(Integer hotelId, ReservationStatus status, Jwt jwt) {
+    public List<ReservationResponse> getReservations(ReservationStatus status, Jwt jwt) {
         requireAnyRole(jwt, Roles.ADMIN, Roles.STAFF);
 
         List<Reservation> reservations;
-        if (hotelId != null && status != null) {
-            reservations = reservationRepository.findByHotel_HotelIdAndStatusOrderByCreatedAtDesc(hotelId, status);
-        } else if (hotelId != null) {
-            reservations = reservationRepository.findByHotel_HotelIdOrderByCreatedAtDesc(hotelId);
+        if (status != null) {
+            reservations = reservationRepository.findByStatusOrderByCreatedAtDesc(status);
         } else {
             reservations = reservationRepository.findAll().stream()
                     .sorted(Comparator.comparing(Reservation::getCreatedAt, Comparator.nullsLast(LocalDateTime::compareTo)).reversed())
@@ -360,6 +386,7 @@ public class ReservationService implements ReservationServiceImp {
                 .collect(Collectors.toList());
     }
 
+
     private void applyStatusTransition(Reservation reservation, ReservationStatus targetStatus, String cancelReason, Jwt jwt) {
         LocalDateTime now = LocalDateTime.now();
         reservation.setStatus(targetStatus);
@@ -450,23 +477,6 @@ public class ReservationService implements ReservationServiceImp {
         }
     }
 
-    private void ensureHotelExists(Integer hotelId) {
-        if (hotelId == null || !hotelRepository.existsById(hotelId)) {
-            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
-        }
-    }
-
-    /**
-     * Single-hotel: nếu client không gửi hotelId thì tự lấy hotel đầu tiên.
-     */
-    private Integer resolveHotelId(Integer hotelId) {
-        if (hotelId != null) {
-            return hotelId;
-        }
-        Hotel hotel = hotelRepository.findFirstByOrderByHotelIdAsc()
-                .orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
-        return hotel.getHotelId();
-    }
 
     private int safeInt(Integer value) {
         return value == null ? 0 : value;

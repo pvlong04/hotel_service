@@ -7,7 +7,6 @@ import org.example.hotel_service.dtos.request.RoomTypeRequest;
 import org.example.hotel_service.dtos.response.PageResponse;
 import org.example.hotel_service.dtos.response.RoomTypeResponse;
 import org.example.hotel_service.entities.Amenity;
-import org.example.hotel_service.entities.Hotel;
 import org.example.hotel_service.entities.RoomType;
 import org.example.hotel_service.entities.RoomTypeImage;
 import org.example.hotel_service.enums.Roles;
@@ -15,7 +14,6 @@ import org.example.hotel_service.enums.RoomTypeStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.AmenityRepository;
-import org.example.hotel_service.repositories.HotelRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
 import org.springframework.data.domain.Page;
@@ -39,7 +37,6 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RoomTypeService implements RoomTypeServiceImp {
 	RoomTypeRepository roomTypeRepository;
-	HotelRepository hotelRepository;
 	AmenityRepository amenityRepository;
 	RoomRepository roomRepository;
 
@@ -76,7 +73,6 @@ public class RoomTypeService implements RoomTypeServiceImp {
 	@Transactional
 	public RoomTypeResponse createRoomType(RoomTypeRequest request, Jwt jwt) {
 		requireAnyRole(jwt, Roles.ADMIN);
-		Hotel hotel = getCurrentHotel();
 
 		String code = request.getCode().trim();
 		if (roomTypeRepository.existsByCode(code)) {
@@ -84,7 +80,6 @@ public class RoomTypeService implements RoomTypeServiceImp {
 		}
 
 		RoomType roomType = RoomType.builder()
-				.hotel(hotel)
 				.code(code)
 				.name(request.getName())
 				.description(request.getDescription())
@@ -151,10 +146,6 @@ public class RoomTypeService implements RoomTypeServiceImp {
 		roomTypeRepository.delete(roomType);
 	}
 
-	private Hotel getCurrentHotel() {
-		return hotelRepository.findFirstByOrderByHotelIdAsc()
-				.orElseThrow(() -> new ApiException(ErrorCode.HOTEL_NOT_FOUND));
-	}
 
 	private List<Amenity> resolveAmenities(List<Integer> amenityIds) {
 		if (amenityIds == null || amenityIds.isEmpty()) {

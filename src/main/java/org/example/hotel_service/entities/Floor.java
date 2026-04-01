@@ -11,7 +11,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "floors", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"hotel_id", "code"})
+        @UniqueConstraint(columnNames = {"code"})
 })
 @Getter
 @Setter
@@ -26,9 +26,6 @@ public class Floor {
     @Column(name = "floor_id")
     Integer floorId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id", nullable = false)
-    Hotel hotel;
 
     @Column(name = "code", nullable = false, length = 40)
     String code;

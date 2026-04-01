@@ -1,6 +1,5 @@
 package org.example.hotel_service.repositories;
 
-import org.example.hotel_service.entities.Hotel;
 import org.example.hotel_service.entities.Reservation;
 import org.example.hotel_service.enums.ReservationStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -16,22 +15,18 @@ import java.util.Optional;
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
-    List<Reservation> findByHotel_HotelIdAndStatusOrderByCreatedAtDesc(Integer hotel_hotelId, ReservationStatus status);
-
-    List<Reservation> findByHotel_HotelIdOrderByCreatedAtDesc(Integer hotelId);
-
     @EntityGraph(attributePaths = {
-            "guest", "hotel", "items", "items.room", "items.roomType", "payments", "charges"
+            "guest", "items", "items.room", "items.roomType", "payments", "charges"
     })
     Optional<Reservation> findWithDetailsByReservationId(Long reservationId);
 
-    @EntityGraph(attributePaths = {"hotel", "items", "items.room", "items.roomType"})
+    @EntityGraph(attributePaths = {"items", "items.room", "items.roomType"})
     List<Reservation> findByGuest_UserIdOrderByCreatedAtDesc(Long userId);
 
-    @EntityGraph(attributePaths = {"guest", "hotel", "items", "items.room", "items.roomType"})
+    @EntityGraph(attributePaths = {"guest", "items", "items.room", "items.roomType"})
     List<Reservation> findAllByOrderByCreatedAtDesc();
 
-    @EntityGraph(attributePaths = {"guest", "hotel", "items", "items.room", "items.roomType"})
+    @EntityGraph(attributePaths = {"guest", "items", "items.room", "items.roomType"})
     List<Reservation> findByStatusOrderByCreatedAtDesc(ReservationStatus status);
 
     @Query("""

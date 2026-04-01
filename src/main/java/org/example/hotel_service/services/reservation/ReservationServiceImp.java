@@ -4,6 +4,7 @@ import org.example.hotel_service.dtos.request.CheckAvailabilityRequest;
 import org.example.hotel_service.dtos.request.CreateChargeRequest;
 import org.example.hotel_service.dtos.request.CreatePaymentRequest;
 import org.example.hotel_service.dtos.request.CreateReservationRequest;
+//import org.example.hotel_service.dtos.request.CreateZaloPayPayloadRequest;
 import org.example.hotel_service.dtos.request.UpdateReservationStatusRequest;
 import org.example.hotel_service.dtos.response.ReservationCreatedResponse;
 import org.example.hotel_service.dtos.response.ReservationChargeResponse;
@@ -24,7 +25,7 @@ public interface ReservationServiceImp {
 
     List<ReservationResponse> getMyReservations(Jwt jwt);
 
-    List<ReservationResponse> getReservations(Integer hotelId, ReservationStatus status, Jwt jwt);
+    List<ReservationResponse> getReservations(ReservationStatus status, Jwt jwt);
 
     ReservationResponse updateReservationStatus(Long reservationId, UpdateReservationStatusRequest request, Jwt jwt);
 
@@ -35,4 +36,6 @@ public interface ReservationServiceImp {
     List<PaymentResponse> getReservationPayments(Long reservationId, Jwt jwt);
 
     List<ReservationChargeResponse> getReservationCharges(Long reservationId, Jwt jwt);
+
+//    ZaloPayloadResponse buildZaloPayPayload(CreateZaloPayPayloadRequest request, Jwt jwt);
 }

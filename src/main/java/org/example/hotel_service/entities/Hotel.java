@@ -8,8 +8,6 @@ import org.example.hotel_service.enums.HotelStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "hotels")
@@ -82,22 +80,6 @@ public class Hotel {
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
 
-    // Relationships
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    List<Floor> floors = new ArrayList<>();
-
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    List<RoomType> roomTypes = new ArrayList<>();
-
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    List<Room> rooms = new ArrayList<>();
-
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    List<HotelImage> images = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

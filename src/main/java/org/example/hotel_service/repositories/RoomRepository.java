@@ -17,14 +17,14 @@ import java.util.Optional;
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Long> {
 
-    @EntityGraph(attributePaths = {"hotel", "roomType", "floor", "images"})
+    @EntityGraph(attributePaths = {"roomType", "floor", "images"})
     Optional<Room> findWithDetailsByRoomId(Long roomId);
 
-    @Query(value = "SELECT r FROM Room r LEFT JOIN FETCH r.roomType LEFT JOIN FETCH r.floor LEFT JOIN FETCH r.hotel",
+    @Query(value = "SELECT r FROM Room r LEFT JOIN FETCH r.roomType LEFT JOIN FETCH r.floor",
             countQuery = "SELECT COUNT(r) FROM Room r")
     Page<Room> findAllBy(Pageable pageable);
 
-    @Query(value = "SELECT r FROM Room r LEFT JOIN FETCH r.roomType LEFT JOIN FETCH r.floor LEFT JOIN FETCH r.hotel WHERE r.status = :status",
+    @Query(value = "SELECT r FROM Room r LEFT JOIN FETCH r.roomType LEFT JOIN FETCH r.floor WHERE r.status = :status",
             countQuery = "SELECT COUNT(r) FROM Room r WHERE r.status = :status")
     Page<Room> findByStatus(@Param("status") RoomStatus status, Pageable pageable);
 
@@ -34,7 +34,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     boolean existsByRoomType_RoomTypeId(Long roomTypeId);
 
-    @EntityGraph(attributePaths = {"hotel", "roomType", "floor", "images"})
+    @EntityGraph(attributePaths = {"roomType", "floor", "images"})
     @Query("""
             SELECT r FROM Room r
             WHERE r.status = 'AVAILABLE'
@@ -51,7 +51,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
               )
             """)
     List<Room> findAvailableRooms(
-            @Param("hotelId") Integer hotelId,
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut
     );

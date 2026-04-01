@@ -54,7 +54,9 @@ public class ApplicationInitConfig {
                             .name(Roles.ADMIN)
                             .build()));
 
-            if (!repo.existsByUsername(bootstrapUsername)) {
+            User user = repo.findWithProfileAndRolesByUsernameOrEmail(bootstrapUsername, bootstrapEmail).orElse(null);
+
+            if (user == null) {
                 User admin = User.builder()
                         .username(bootstrapUsername)
                         .email(bootstrapEmail)
@@ -72,8 +74,35 @@ public class ApplicationInitConfig {
                 admin.setUserRoles(roles);
                 repo.save(admin);
                 log.info("Bootstrap admin user '{}' has been created.", bootstrapUsername);
+                return;
+            }
+
+            Set<UserRole> currentRoles = user.getUserRoles() == null
+                    ? new HashSet<>()
+                    : new HashSet<>(user.getUserRoles());
+
+            boolean hasAdminRole = currentRoles.stream()
+                    .anyMatch(ur -> ur.getRole() != null && ur.getRole().getName() == Roles.ADMIN);
+
+            boolean changed = false;
+            if (!hasAdminRole) {
+                currentRoles.add(UserRole.builder()
+                        .user(user)
+                        .role(adminRole)
+                        .build());
+                user.setUserRoles(currentRoles);
+                changed = true;
+            }
+
+            if (user.getStatus() != UserStatus.ACTIVE) {
+                user.setStatus(UserStatus.ACTIVE);
+                changed = true;
+            }
+
+            if (changed) {
+                repo.save(user);
+                log.info("Bootstrap user '{}' has been promoted/activated as ADMIN.", user.getUsername());
             }
         };
     }
 }
-

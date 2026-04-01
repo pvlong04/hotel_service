@@ -42,8 +42,11 @@ public enum ErrorCode {
     USER_INACTIVE_BANE(1030, "Tài khoản chưa được kích hoạt hoặc đã bị khóa"),
     PAYMENT_NOT_FOUND(1031, "Không tìm thấy giao dịch thanh toán"),
     PAYMENT_ALREADY_COMPLETED(1032, "Giao dịch thanh toán đã hoàn thành"),
-    AMENITY_NOT_FOUND(1033, "Không tìm thấy tiện nghi"),;
+    AMENITY_NOT_FOUND(1033, "Không tìm thấy tiện nghi"),
+    EMAIL_VERIFICATION_TOKEN_INVALID(1034, "Token xac thuc email khong hop le hoac da het han"),
+    EMAIL_ALREADY_VERIFIED(1035, "Tai khoan da duoc kich hoat truoc do"),
+    RUNTIME_ERROR(1036, "Lỗi thực thi"),
+    INVALID_REQUEST(1037, "File rỗng hoặc không hợp lệ"),;
     int code;
     String message;
-
 }

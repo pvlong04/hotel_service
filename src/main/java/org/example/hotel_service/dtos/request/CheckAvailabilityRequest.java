@@ -2,15 +2,11 @@ package org.example.hotel_service.dtos.request;
 
 import java.time.LocalDate;
 
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.validation.constraints.NotNull;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.Generated;
 import lombok.NoArgsConstructor;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -25,8 +21,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CheckAvailabilityRequest {
 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Integer hotelId;
 
     @NotNull(message = "Ngày check-in không được để trống")
     LocalDate checkInDate;

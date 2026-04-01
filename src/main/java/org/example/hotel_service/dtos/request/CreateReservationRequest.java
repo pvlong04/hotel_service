@@ -3,7 +3,6 @@ package org.example.hotel_service.dtos.request;
 import java.time.LocalDate;
 import java.util.List;
 
-import jakarta.persistence.GeneratedValue;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -28,8 +27,10 @@ import lombok.NoArgsConstructor;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateReservationRequest {
 
-    @GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
-    Integer hotelId;
+    /** Optional: STAFF/ADMIN tạo đơn thay cho khách */
+    @Min(value = 1, message = "Guest ID phải lớn hơn 0")
+    Long guestId;
+
 
     @NotNull(message = "Ngày check-in không được để trống")
     @FutureOrPresent(message = "Ngày check-in phải từ hôm nay trở đi")

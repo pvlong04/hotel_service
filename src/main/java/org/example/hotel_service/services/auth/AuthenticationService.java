@@ -9,28 +9,36 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.config.JwtProperties;
 import org.example.hotel_service.dtos.request.LoginRequest;
 import org.example.hotel_service.dtos.request.RefreshTokenRequest;
+import org.example.hotel_service.dtos.request.ResendVerificationRequest;
 import org.example.hotel_service.dtos.request.RegisterRequest;
 import org.example.hotel_service.dtos.response.AuthResponse;
+import org.example.hotel_service.entities.AuthToken;
 import org.example.hotel_service.entities.Profile;
 import org.example.hotel_service.entities.RefreshToken;
 import org.example.hotel_service.entities.Role;
 import org.example.hotel_service.entities.User;
 import org.example.hotel_service.entities.UserRole;
 import org.example.hotel_service.enums.Roles;
+import org.example.hotel_service.enums.TokenPurpose;
 import org.example.hotel_service.enums.UserStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.mapper.UserMapper;
+import org.example.hotel_service.repositories.AuthTokenRepository;
 import org.example.hotel_service.repositories.RefreshTokenRepository;
 import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
+import org.example.hotel_service.services.email.EmailService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -41,7 +49,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -57,8 +64,22 @@ public class AuthenticationService implements AuthenticationServiceImp {
     PasswordEncoder passwordEncoder;
     RoleRepository roleRepository;
     RefreshTokenRepository refreshTokenRepository;
+    AuthTokenRepository authTokenRepository;
+    EmailService emailService;
 
     JwtProperties jwtProperties;
+
+    @NonFinal
+    @Value("${app.mail.verify-base-url:http://localhost:9000/auth/verify-email}")
+    String verifyBaseUrl;
+
+    @NonFinal
+    @Value("${app.mail.verify-token-ttl-hours:24}")
+    long verifyTokenTtlHours;
+
+    @NonFinal
+    @Value("${app.mail.verify-resend-cooldown-seconds:60}")
+    long resendCooldownSeconds;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -71,9 +92,12 @@ public class AuthenticationService implements AuthenticationServiceImp {
 
         User user = userMapper.toUser(request);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setStatus(UserStatus.PENDING);
 
         Role guestRole = roleRepository.findByName(Roles.GUEST)
-                .orElseGet(() -> roleRepository.save(Role.builder().name(Roles.GUEST).build()));
+                .orElseGet(() -> roleRepository.save(Role.builder()
+                        .name(Roles.GUEST)
+                        .build()));
 
         Profile profile = Profile.builder()
                 .user(user)
@@ -86,16 +110,26 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .user(user)
                 .role(guestRole)
                 .build();
-        Set<UserRole> userRoles = new HashSet<>();
-        userRoles.add(userRole);
-        user.setUserRoles(userRoles);
 
+//        Set<UserRole> userRoles = new HashSet<>();
+//        userRoles.add(userRole);
+//        user.setUserRoles(userRoles);
+        user.setUserRoles(Set.of(userRole));
         User savedUser = userRepository.save(user);
 
-        String accessToken = generateAccessToken(savedUser);
-        String refreshToken = issueRefreshToken(savedUser, null, null);
+        issueAndSendVerificationToken(savedUser);
 
-        return getAuthResponse(savedUser, accessToken, refreshToken);
+        return AuthResponse.builder()
+                .tokenType("Bearer")
+                .user(AuthResponse.UserInfo.builder()
+                        .userId(savedUser.getUserId())
+                        .username(savedUser.getUsername())
+                        .email(savedUser.getEmail())
+                        .fullName(savedUser.getProfile() != null ? savedUser.getProfile().getFullName() : null)
+                        .avatarUrl(savedUser.getProfile() != null ? savedUser.getProfile().getAvatarUrl() : null)
+                        .roles(extractRoleNames(savedUser))
+                        .build())
+                .build();
     }
 
 
@@ -187,6 +221,67 @@ public class AuthenticationService implements AuthenticationServiceImp {
         }
     }
 
+    @Override
+    @Transactional
+    public void verifyEmail(String token) {
+        if (token == null || token.isBlank()) {
+            throw new ApiException(ErrorCode.EMAIL_VERIFICATION_TOKEN_INVALID);
+        }
+
+        AuthToken authToken = authTokenRepository.findByTokenHashAndPurpose(hashToken(token), TokenPurpose.VERIFY_EMAIL)
+                .orElseThrow(() -> new ApiException(ErrorCode.EMAIL_VERIFICATION_TOKEN_INVALID));
+
+        User user = authToken.getUser();
+        LocalDateTime now = LocalDateTime.now();
+
+        // Idempotent behavior: if this token was already consumed and user is ACTIVE,
+        // treat subsequent calls as success (common with repeated clicks/dev strict mode).
+        if (authToken.getUsedAt() != null) {
+            if (user.getStatus() == UserStatus.ACTIVE) {
+                return;
+            }
+            throw new ApiException(ErrorCode.EMAIL_VERIFICATION_TOKEN_INVALID);
+        }
+
+        if (authToken.getExpiresAt().isBefore(now)) {
+            throw new ApiException(ErrorCode.EMAIL_VERIFICATION_TOKEN_INVALID);
+        }
+
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            authToken.setUsedAt(now);
+            authTokenRepository.save(authToken);
+            return;
+        }
+
+        authToken.setUsedAt(now);
+        user.setStatus(UserStatus.ACTIVE);
+        authTokenRepository.save(authToken);
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void resendVerification(ResendVerificationRequest request) {
+        userRepository.findByEmail(request.getEmail())
+                .ifPresent(user -> {
+                    if (user.getStatus() == UserStatus.PENDING) {
+                        LocalDateTime now = LocalDateTime.now();
+                        boolean inCooldown = authTokenRepository
+                                .findTopByUser_UserIdAndPurposeAndUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
+                                        user.getUserId(), TokenPurpose.VERIFY_EMAIL, now)
+                                .map(existingToken -> existingToken.getCreatedAt() != null
+                                        && existingToken.getCreatedAt().plusSeconds(resendCooldownSeconds).isAfter(now))
+                                .orElse(false);
+
+                        if (inCooldown) {
+                            return;
+                        }
+
+                        issueAndSendVerificationToken(user);
+                    }
+                });
+    }
+
     private String generateAccessToken(User user) {
         JWSHeader jweHeader = new JWSHeader(JWSAlgorithm.HS512);
         Set<String> roles = extractRoleNames(user);
@@ -243,6 +338,30 @@ public class AuthenticationService implements AuthenticationServiceImp {
         byte[] randomBytes = new byte[64];
         new SecureRandom().nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+    private void issueAndSendVerificationToken(User user) {
+        String rawToken = generateRefreshTokenValue();
+        authTokenRepository.deleteByUser_UserIdAndPurposeAndUsedAtIsNull(user.getUserId(), TokenPurpose.VERIFY_EMAIL);
+
+        AuthToken authToken = AuthToken.builder()
+                .user(user)
+                .purpose(TokenPurpose.VERIFY_EMAIL)
+                .tokenHash(hashToken(rawToken))
+                .expiresAt(LocalDateTime.now().plusHours(verifyTokenTtlHours))
+                .build();
+        authTokenRepository.save(authToken);
+
+        String verifyLink = buildVerifyLink(rawToken);
+        emailService.sendVerificationEmail(user, verifyLink);
+    }
+
+    private String buildVerifyLink(String rawToken) {
+        String baseUrl = verifyBaseUrl == null ? "" : verifyBaseUrl.trim();
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("token", rawToken)
+                .build()
+                .toUriString();
     }
 
     private String hashToken(String token) {

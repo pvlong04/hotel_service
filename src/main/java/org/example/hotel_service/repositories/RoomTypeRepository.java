@@ -20,15 +20,15 @@ public interface RoomTypeRepository extends JpaRepository<RoomType, Long> {
 	 * fetch nhiều bag-collection (amenities + images) cùng lúc với pagination
 	 * → InvalidDataAccessApiUsageException. Lazy loading xử lý bởi @Transactional.
 	 */
-	@Query(value = "SELECT rt FROM RoomType rt LEFT JOIN FETCH rt.hotel",
+	@Query(value = "SELECT rt FROM RoomType rt",
 			countQuery = "SELECT COUNT(rt) FROM RoomType rt")
 	Page<RoomType> findAllBy(Pageable pageable);
 
-	@Query(value = "SELECT rt FROM RoomType rt LEFT JOIN FETCH rt.hotel WHERE rt.status = :status",
+	@Query(value = "SELECT rt FROM RoomType rt WHERE rt.status = :status",
 			countQuery = "SELECT COUNT(rt) FROM RoomType rt WHERE rt.status = :status")
 	Page<RoomType> findByStatus(@Param("status") RoomTypeStatus status, Pageable pageable);
 
-	@Query("SELECT rt FROM RoomType rt LEFT JOIN FETCH rt.hotel WHERE rt.roomTypeId = :id")
+	@Query("SELECT rt FROM RoomType rt WHERE rt.roomTypeId = :id")
 	Optional<RoomType> findWithDetailsByRoomTypeId(@Param("id") Long roomTypeId);
 
 	boolean existsByCode(String code);

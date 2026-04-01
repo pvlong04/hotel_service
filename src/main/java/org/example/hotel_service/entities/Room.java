@@ -17,7 +17,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "rooms", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"hotel_id", "room_number"})
+        @UniqueConstraint(columnNames = {"room_number"})
 })
 @Getter
 @Setter
@@ -32,9 +32,6 @@ public class Room {
     @Column(name = "room_id")
     Long roomId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id", nullable = false)
-    Hotel hotel;
 
     /** Số phòng hiển thị (101, 201A, P3...) */
     @Column(name = "room_number", nullable = false, length = 50)

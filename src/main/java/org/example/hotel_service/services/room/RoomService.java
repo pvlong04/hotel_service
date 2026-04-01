@@ -4,11 +4,11 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.example.hotel_service.config.ImageStorageProperties;
 import org.example.hotel_service.dtos.request.RoomRequest;
 import org.example.hotel_service.dtos.response.PageResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
 import org.example.hotel_service.entities.Floor;
-import org.example.hotel_service.entities.Hotel;
 import org.example.hotel_service.entities.Room;
 import org.example.hotel_service.entities.RoomImage;
 import org.example.hotel_service.entities.RoomType;
@@ -27,6 +27,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -42,6 +43,7 @@ public class RoomService implements RoomServiceImp {
     RoomRepository roomRepository;
     RoomTypeRepository roomTypeRepository;
     FloorRepository floorRepository;
+    ImageStorageProperties imageStorageProperties;
 
 
     @Override
@@ -110,13 +112,8 @@ public class RoomService implements RoomServiceImp {
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND));
 
         Floor floor = resolveFloor(request.getFloorId());
-        Hotel hotel = roomType.getHotel();
-        if (hotel == null) {
-            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
-        }
 
         Room room = Room.builder()
-                .hotel(hotel)
                 .roomNumber(normalizedRoomNumber)
                 .roomType(roomType)
                 .floor(floor)
@@ -159,12 +156,7 @@ public class RoomService implements RoomServiceImp {
         RoomType roomType = roomTypeRepository.findById(request.getRoomTypeId())
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_TYPE_NOT_FOUND));
         Floor floor = resolveFloor(request.getFloorId());
-        Hotel hotel = roomType.getHotel();
-        if (hotel == null) {
-            throw new ApiException(ErrorCode.HOTEL_NOT_FOUND);
-        }
 
-        room.setHotel(hotel);
         room.setRoomNumber(normalizedRoomNumber);
         room.setRoomType(roomType);
         room.setFloor(floor);
@@ -200,11 +192,11 @@ public class RoomService implements RoomServiceImp {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RoomResponse> getAvailableRooms(Integer hotelId, LocalDate checkIn, LocalDate checkOut) {
+    public List<RoomResponse> getAvailableRooms(LocalDate checkIn, LocalDate checkOut) {
         if (checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
             throw new ApiException(ErrorCode.INVALID_DATE_RANGE);
         }
-        List<Room> rooms = roomRepository.findAvailableRooms(hotelId, checkIn, checkOut);
+        List<Room> rooms = roomRepository.findAvailableRooms(checkIn, checkOut);
         return rooms.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
@@ -293,11 +285,35 @@ public class RoomService implements RoomServiceImp {
                 .sorted(Comparator.comparing(RoomImage::getSortOrder, Comparator.nullsLast(Integer::compareTo)))
                 .map(img -> RoomResponse.ImageItem.builder()
                         .imageId(img.getImageId())
-                        .url(img.getUrl())
+                        .url(normalizeImageUrl(img.getUrl()))
                         .caption(img.getCaption())
                         .isPrimary(img.getIsPrimary())
                         .sortOrder(img.getSortOrder())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private String normalizeImageUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        }
+        String baseUrl = imageStorageProperties.getBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return url;
+        }
+
+        String normalizedBase = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        if (!url.startsWith("/")) {
+            // Filename-only legacy values map to configured /images base.
+            return normalizedBase + "/" + url;
+        }
+
+        // Absolute path legacy values should be resolved from backend origin.
+        URI baseUri = URI.create(normalizedBase);
+        String origin = baseUri.getScheme() + "://" + baseUri.getAuthority();
+        return origin + url;
     }
 }

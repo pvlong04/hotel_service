@@ -160,39 +160,8 @@ CREATE TABLE refresh_tokens (
 
 
 -- =========================================================
--- 2) HOTEL / FLOOR / ROOM TYPE / ROOM / AMENITIES
+-- 2) FLOOR / ROOM TYPE / ROOM / AMENITIES
 -- =========================================================
-
--- Bảng HOTELS: Thông tin khách sạn
--- Hỗ trợ multi-hotel (chuỗi khách sạn)
--- Giải thích:
---   star_rating: Số sao khách sạn (1-5)
---   description: Mô tả chi tiết về khách sạn
---   check_in_time/check_out_time: Giờ check-in/out tiêu chuẩn
---   latitude/longitude: Tọa độ GPS cho bản đồ
-CREATE TABLE hotels (
-                        hotel_id INT AUTO_INCREMENT PRIMARY KEY,
-                        name VARCHAR(255) NOT NULL,
-                        address VARCHAR(500) DEFAULT NULL,
-                        city VARCHAR(100) DEFAULT NULL,
-                        country VARCHAR(100) DEFAULT NULL,
-                        phone VARCHAR(64) DEFAULT NULL,
-                        email VARCHAR(150) DEFAULT NULL,
-                        website VARCHAR(255) DEFAULT NULL,
-                        description TEXT DEFAULT NULL,
-                        star_rating TINYINT DEFAULT 3 CHECK (star_rating BETWEEN 1 AND 5),
-                        check_in_time TIME DEFAULT '14:00:00',
-                        check_out_time TIME DEFAULT '12:00:00',
-                        latitude DECIMAL(10, 8) DEFAULT NULL,
-                        longitude DECIMAL(11, 8) DEFAULT NULL,
-                        timezone VARCHAR(64) DEFAULT 'Asia/Ho_Chi_Minh',
-                        status ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-                        INDEX idx_hotels_status (status),
-                        INDEX idx_hotels_location (latitude, longitude)
-) ENGINE=InnoDB COMMENT='Bảng thông tin khách sạn';
 
 -- Bảng HOTEL_IMAGES: Hình ảnh khách sạn (thêm mới)
 -- Lưu nhiều hình ảnh cho mỗi khách sạn
@@ -202,17 +171,12 @@ CREATE TABLE hotels (
 --   is_primary: Có phải ảnh đại diện không
 CREATE TABLE hotel_images (
                               image_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                              hotel_id INT NOT NULL,
                               url VARCHAR(500) NOT NULL,
                               type ENUM('EXTERIOR','LOBBY','RESTAURANT','POOL','FACILITY','OTHER') NOT NULL DEFAULT 'OTHER',
                               sort_order INT NOT NULL DEFAULT 0,
                               is_primary BOOLEAN NOT NULL DEFAULT FALSE,
                               caption VARCHAR(255) DEFAULT NULL,
-                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-                              INDEX idx_hotel_images_hotel (hotel_id),
-                              CONSTRAINT fk_hi_hotel FOREIGN KEY (hotel_id)
-                                  REFERENCES hotels(hotel_id) ON DELETE CASCADE
+                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='Hình ảnh khách sạn';
 
 -- Bảng FLOORS: Các tầng trong khách sạn
@@ -222,15 +186,12 @@ CREATE TABLE hotel_images (
 --   floor_order: Thứ tự tầng (để sắp xếp hiển thị)
 CREATE TABLE floors (
                         floor_id INT AUTO_INCREMENT PRIMARY KEY,
-                        hotel_id INT NOT NULL,
                         code VARCHAR(40) NOT NULL,
                         name VARCHAR(120) DEFAULT NULL,
                         floor_order INT DEFAULT 0,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-                        UNIQUE KEY uq_floor_code_hotel (hotel_id, code),
-                        CONSTRAINT fk_floor_hotel FOREIGN KEY (hotel_id)
-                            REFERENCES hotels(hotel_id) ON DELETE CASCADE
+                        UNIQUE KEY uq_floor_code (code)
 ) ENGINE=InnoDB COMMENT='Các tầng trong khách sạn';
 
 -- Bảng ROOM_TYPES: Các loại phòng
@@ -245,7 +206,6 @@ CREATE TABLE floors (
 --   room_size: Diện tích phòng (m²)
 CREATE TABLE room_types (
                             room_type_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                            hotel_id INT NOT NULL,
                             code VARCHAR(50) NOT NULL,
                             name VARCHAR(150) NOT NULL,
                             description TEXT DEFAULT NULL,
@@ -264,12 +224,9 @@ CREATE TABLE room_types (
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-                            UNIQUE KEY uq_room_type_code_hotel (hotel_id, code),
-                            INDEX idx_rt_hotel (hotel_id),
+                            UNIQUE KEY uq_room_type_code (code),
                             INDEX idx_rt_status (status),
-                            INDEX idx_rt_price (price_per_night),
-                            CONSTRAINT fk_rt_hotel FOREIGN KEY (hotel_id)
-                                REFERENCES hotels(hotel_id) ON DELETE CASCADE
+                            INDEX idx_rt_price (price_per_night)
 ) ENGINE=InnoDB COMMENT='Các loại phòng trong khách sạn';
 
 -- Bảng ROOM_TYPE_IMAGES: Hình ảnh theo loại phòng (thay cho room_images)
@@ -331,7 +288,6 @@ CREATE TABLE room_type_amenities (
 --   note: Ghi chú nội bộ (VD: "Điều hòa hỏng")
 CREATE TABLE rooms (
                        room_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                       hotel_id INT NOT NULL,
                        room_number VARCHAR(50) NOT NULL,
                        room_type_id BIGINT NOT NULL,
                        floor_id INT DEFAULT NULL,
@@ -340,13 +296,10 @@ CREATE TABLE rooms (
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-                       INDEX idx_rooms_hotel (hotel_id),
                        INDEX idx_rooms_type (room_type_id),
                        INDEX idx_rooms_status (status),
                        INDEX idx_rooms_type_status (room_type_id, status),
-                       UNIQUE KEY uq_room_number_hotel (hotel_id, room_number),
-                       CONSTRAINT fk_room_hotel FOREIGN KEY (hotel_id)
-                           REFERENCES hotels(hotel_id) ON DELETE CASCADE,
+                       UNIQUE KEY uq_room_number (room_number),
                        CONSTRAINT fk_room_type FOREIGN KEY (room_type_id)
                            REFERENCES room_types(room_type_id) ON DELETE RESTRICT,
                        CONSTRAINT fk_room_floor FOREIGN KEY (floor_id)
@@ -392,7 +345,6 @@ CREATE TABLE reservations (
                               reservation_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                               reservation_code VARCHAR(40) NOT NULL UNIQUE,
                               guest_id BIGINT NOT NULL,
-                              hotel_id INT NOT NULL,
                               status ENUM('PENDING','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED') NOT NULL DEFAULT 'PENDING',
 
     -- Ngày check-in/out dự kiến
@@ -426,17 +378,14 @@ CREATE TABLE reservations (
                               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
                               INDEX idx_res_guest (guest_id),
-                              INDEX idx_res_hotel (hotel_id),
                               INDEX idx_res_status (status),
                               INDEX idx_res_code (reservation_code),
                               INDEX idx_res_checkin (check_in_date),
                               INDEX idx_res_checkout (check_out_date),
-                              INDEX idx_res_date_range (hotel_id, check_in_date, check_out_date),
+                              INDEX idx_res_date_range (check_in_date, check_out_date),
 
                               CONSTRAINT fk_res_guest FOREIGN KEY (guest_id)
                                   REFERENCES users(user_id) ON DELETE RESTRICT,
-                              CONSTRAINT fk_res_hotel FOREIGN KEY (hotel_id)
-                                  REFERENCES hotels(hotel_id) ON DELETE CASCADE,
                               CONSTRAINT fk_res_confirmed_by FOREIGN KEY (confirmed_by)
                                   REFERENCES users(user_id) ON DELETE SET NULL,
                               CONSTRAINT fk_res_cancelled_by FOREIGN KEY (cancelled_by)
@@ -584,7 +533,6 @@ CREATE TABLE reviews (
                          review_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                          reservation_id BIGINT NOT NULL UNIQUE,
                          guest_id BIGINT NOT NULL,
-                         hotel_id INT NOT NULL,
 
     -- Đánh giá tổng thể
                          rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
@@ -610,7 +558,6 @@ CREATE TABLE reviews (
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-                         INDEX idx_review_hotel (hotel_id),
                          INDEX idx_review_guest (guest_id),
                          INDEX idx_review_rating (rating),
                          INDEX idx_review_visible (is_visible),
@@ -619,8 +566,6 @@ CREATE TABLE reviews (
                              REFERENCES reservations(reservation_id) ON DELETE CASCADE,
                          CONSTRAINT fk_review_guest FOREIGN KEY (guest_id)
                              REFERENCES users(user_id) ON DELETE CASCADE,
-                         CONSTRAINT fk_review_hotel FOREIGN KEY (hotel_id)
-                             REFERENCES hotels(hotel_id) ON DELETE CASCADE,
                          CONSTRAINT fk_review_replied_by FOREIGN KEY (replied_by)
                              REFERENCES users(user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB COMMENT='Đánh giá từ khách hàng';
@@ -725,17 +670,12 @@ INSERT INTO roles(name, description) VALUES
                                          ('STAFF', 'Nhân viên khách sạn - quản lý đặt phòng, check-in/out'),
                                          ('GUEST', 'Khách hàng - đặt phòng, đánh giá');
 
--- Sample hotel
-INSERT INTO hotels (name, address, phone, email, description, star_rating) VALUES
-    ('Demo Hotel Central', '123 Example St, District 1, Ho Chi Minh City', '+84-123-456-789',
-     'info@demo-hotel.example', 'Khách sạn hiện đại tại trung tâm thành phố', 4);
-
 -- Floors
-INSERT INTO floors (hotel_id, code, name, floor_order) VALUES
-                                                           (1, 'G', 'Tầng Trệt', 0),
-                                                           (1, 'F1', 'Tầng 1', 1),
-                                                           (1, 'F2', 'Tầng 2', 2),
-                                                           (1, 'F3', 'Tầng 3', 3);
+INSERT INTO floors (code, name, floor_order) VALUES
+                                                   ('G', 'Tầng Trệt', 0),
+                                                   ('F1', 'Tầng 1', 1),
+                                                   ('F2', 'Tầng 2', 2),
+                                                   ('F3', 'Tầng 3', 3);
 
 -- Amenities với phân loại
 INSERT INTO amenities (name, description, icon, category) VALUES
@@ -755,11 +695,11 @@ INSERT INTO amenities (name, description, icon, category) VALUES
                                                               ('Máy sấy tóc', 'Máy sấy tóc trong phòng tắm', 'wind', 'BATHROOM');
 
 -- Room types
-INSERT INTO room_types (hotel_id, code, name, description, capacity, max_adults, max_children, price_per_night, weekend_price, bed_type, room_size) VALUES
-                                                                                                                                                   (1, 'STD', 'Standard', 'Phòng tiêu chuẩn, view thành phố', 2, 2, 1, 800000, 900000, 'DOUBLE', 25.00),
-                                                                                                                                                   (1, 'SUP', 'Superior', 'Phòng Superior, rộng rãi hơn', 2, 2, 1, 1000000, 1150000, 'DOUBLE', 30.00),
-                                                                                                                                                   (1, 'DLX', 'Deluxe', 'Phòng Deluxe với view đẹp', 3, 2, 2, 1500000, 1700000, 'KING', 35.00),
-                                                                                                                                                   (1, 'STE', 'Suite', 'Phòng Suite cao cấp', 4, 3, 2, 2500000, 2800000, 'KING', 50.00);
+INSERT INTO room_types (code, name, description, capacity, max_adults, max_children, price_per_night, weekend_price, bed_type, room_size) VALUES
+                                                                                                                                          ('STD', 'Standard', 'Phòng tiêu chuẩn, view thành phố', 2, 2, 1, 800000, 900000, 'DOUBLE', 25.00),
+                                                                                                                                          ('SUP', 'Superior', 'Phòng Superior, rộng rãi hơn', 2, 2, 1, 1000000, 1150000, 'DOUBLE', 30.00),
+                                                                                                                                          ('DLX', 'Deluxe', 'Phòng Deluxe với view đẹp', 3, 2, 2, 1500000, 1700000, 'KING', 35.00),
+                                                                                                                                          ('STE', 'Suite', 'Phòng Suite cao cấp', 4, 3, 2, 2500000, 2800000, 'KING', 50.00);
 
 -- Room type amenities
 INSERT INTO room_type_amenities (room_type_id, amenity_id) VALUES
@@ -785,7 +725,6 @@ INSERT INTO room_type_amenities (room_type_id, amenity_id) VALUES
 --
 -- 2. CÁC API CẦN THIẾT:
 --    - Auth: register, login, refresh-token, forgot-password
---    - Hotels: CRUD, search với filter
 --    - Rooms: CRUD, check availability
 --    - Reservations: create, confirm, check-in, check-out, cancel
 --    - Payments: create, callback từ payment gateway

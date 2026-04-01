@@ -25,9 +25,6 @@ public class HotelImage {
     @Column(name = "image_id")
     Long imageId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id", nullable = false)
-    Hotel hotel;
 
     @Column(name = "url", nullable = false, length = 500)
     String url;

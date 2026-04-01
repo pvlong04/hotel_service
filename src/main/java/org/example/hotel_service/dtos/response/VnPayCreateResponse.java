@@ -9,25 +9,21 @@ import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
-/**
- * DTO phản hồi tạo mã QR thanh toán
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class QrPaymentResponse {
+public class VnPayCreateResponse {
     Long paymentId;
     Long reservationId;
     Long amount;
     String status;
-
-    /** Nội dung QR – chuỗi mô phỏng thông tin chuyển khoản */
+    String txnRef;
+    String paymentUrl;
     String qrContent;
-
-    /** Thời điểm hết hạn thanh toán QR */
+    String qrImage;
     LocalDateTime expiresAt;
-
     LocalDateTime createdAt;
 }
+

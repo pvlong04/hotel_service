@@ -21,19 +21,22 @@ import javax.crypto.spec.SecretKeySpec;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_URL = {"/auth/register","/auth/login", "/auth/refresh", "/auth/logout", "/auth/token", "/auth/introspect"};
-    private static final String[] PUBLIC_URL_USER = {"/users", "/users/{userId}"};
+    private static final String[] PUBLIC_URL = {"/auth/register","/auth/login", "/auth/refresh", "/auth/logout", "/auth/token", "/auth/introspect", "/auth/resend-verification"};
 
     private final JwtProperties jwtProperties;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) {
         httpSecurity.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, PUBLIC_URL )
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, "/payments/vnpay/confirm")
+                .permitAll()
+                .requestMatchers(HttpMethod.GET, "/auth/verify-email")
+                .permitAll()
 
                 // Public GET endpoints
-                .requestMatchers(HttpMethod.GET, "/rooms/**", "/room-types/**", "/amenities/**")
+                .requestMatchers(HttpMethod.GET, "/rooms/**", "/room-types/**", "/amenities/**", "/images/**")
                 .permitAll()
 
 //                .requestMatchers(HttpMethod.GET, PUBLIC_URL_USER).permitAll()

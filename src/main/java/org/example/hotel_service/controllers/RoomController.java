@@ -82,11 +82,10 @@ public class RoomController {
 
     @GetMapping("/available")
     public ResponseEntity<ApiResponse<List<RoomResponse>>> getAvailableRooms(
-            @RequestParam(required = false) Integer hotelId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut
     ) {
-        List<RoomResponse> result = roomService.getAvailableRooms(hotelId, checkIn, checkOut);
+        List<RoomResponse> result = roomService.getAvailableRooms(checkIn, checkOut);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng trống thành công", result));
     }
 

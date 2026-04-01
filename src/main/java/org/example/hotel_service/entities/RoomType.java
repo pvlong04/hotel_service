@@ -19,7 +19,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "room_types", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"hotel_id", "code"})
+        @UniqueConstraint(columnNames = {"code"})
 })
 @Getter
 @Setter
@@ -34,9 +34,6 @@ public class RoomType {
     @Column(name = "room_type_id")
     Long roomTypeId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id", nullable = false)
-    Hotel hotel;
 
     /** Mã định danh ngắn (STD, DLX, SUT...) */
     @Column(name = "code", nullable = false, length = 50)
@@ -82,7 +79,7 @@ public class RoomType {
     BedType bedType;
 
     /** Số giường trong phòng */
-    @Column(name = "bed_count")
+    @Column(name = "bed_count", nullable = false)
     @Builder.Default
     Integer bedCount = 1;
 
