@@ -38,6 +38,8 @@ import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.example.hotel_service.services.email.EmailService;
+import org.example.hotel_service.services.notification.NotificationServiceImp;
+import org.example.hotel_service.enums.NotificationType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +70,7 @@ public class ReservationService implements ReservationServiceImp {
     PaymentRepository paymentRepository;
     ReservationChargeRepository reservationChargeRepository;
     EmailService emailService;
+    NotificationServiceImp notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -170,6 +173,37 @@ public class ReservationService implements ReservationServiceImp {
             emailService.sendBookingConfirmationEmail(saved);
         } catch (Exception ex) {
             log.warn("Booking confirmation email failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
+        }
+
+        // Push notification
+        try {
+            notificationService.createAndPush(
+                    guest,
+                    NotificationType.RESERVATION_CREATED,
+                    "Đặt phòng thành công",
+                    String.format("Đơn %s đã được tạo. Check-in: %s, Check-out: %s",
+                            saved.getReservationCode(), saved.getCheckInDate(), saved.getCheckOutDate()),
+                    saved.getReservationId()
+            );
+        } catch (Exception ex) {
+            log.warn("Notification push failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
+        }
+
+        try {
+            Long actorId = extractUserId(jwt);
+            User actor = userRepository.findById(actorId).orElse(null);
+            if (actor != null) {
+                notificationService.notifyHierarchy(
+                        actor,
+                        resolveActorRole(jwt),
+                        "tao",
+                        "don dat phong",
+                        saved.getReservationId(),
+                        saved.getReservationCode()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Hierarchy notification failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
         }
 
         return ReservationCreatedResponse.builder()
@@ -291,6 +325,52 @@ public class ReservationService implements ReservationServiceImp {
 
         applyStatusTransition(reservation, to, request.getCancelReason(), jwt);
         Reservation saved = reservationRepository.save(reservation);
+
+        // Push notification on status change
+        try {
+            NotificationType notifType = switch (to) {
+                case CONFIRMED -> NotificationType.RESERVATION_CONFIRMED;
+                case CHECKED_IN -> NotificationType.RESERVATION_CHECKIN;
+                case CHECKED_OUT -> NotificationType.RESERVATION_CHECKOUT;
+                case CANCELLED -> NotificationType.RESERVATION_CANCELLED;
+                default -> null;
+            };
+            if (notifType != null && saved.getGuest() != null) {
+                String title = switch (to) {
+                    case CONFIRMED -> "Đơn đặt phòng đã xác nhận";
+                    case CHECKED_IN -> "Check-in thành công";
+                    case CHECKED_OUT -> "Check-out thành công";
+                    case CANCELLED -> "Đơn đặt phòng đã hủy";
+                    default -> "Cập nhật đơn đặt phòng";
+                };
+                notificationService.createAndPush(
+                        saved.getGuest(), notifType, title,
+                        String.format("Đơn %s: %s", saved.getReservationCode(), title),
+                        saved.getReservationId()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Notification push failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
+        }
+
+        try {
+            Long actorId = extractUserId(jwt);
+            User actor = userRepository.findById(actorId).orElse(null);
+            if (actor != null) {
+                String action = to == ReservationStatus.CANCELLED ? "huy" : "cap nhat";
+                notificationService.notifyHierarchy(
+                        actor,
+                        resolveActorRole(jwt),
+                        action,
+                        "don dat phong",
+                        saved.getReservationId(),
+                        saved.getReservationCode() + " -> " + to.name()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Hierarchy notification failed for reservation status {}: {}", saved.getReservationId(), ex.getMessage());
+        }
+
         return toReservationResponse(saved);
     }
 
@@ -326,7 +406,25 @@ public class ReservationService implements ReservationServiceImp {
         paymentRepository.save(payment);
 
         reservation.setPaidAmount(reservation.getPaidAmount() + request.getAmount());
-        return toReservationResponse(reservationRepository.save(reservation));
+        Reservation savedRes = reservationRepository.save(reservation);
+
+        // Push payment notification
+        try {
+            if (savedRes.getGuest() != null) {
+                notificationService.createAndPush(
+                        savedRes.getGuest(),
+                        NotificationType.PAYMENT_SUCCESS,
+                        "Thanh toán thành công",
+                        String.format("Đã thanh toán %,d VND cho đơn %s",
+                                request.getAmount(), savedRes.getReservationCode()),
+                        savedRes.getReservationId()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Payment notification push failed: {}", ex.getMessage());
+        }
+
+        return toReservationResponse(savedRes);
     }
 
     @Override
@@ -355,7 +453,23 @@ public class ReservationService implements ReservationServiceImp {
         reservationChargeRepository.save(charge);
 
         reservation.setTotalAmount(reservation.getTotalAmount() + request.getAmount());
-        return toReservationResponse(reservationRepository.save(reservation));
+        Reservation saved = reservationRepository.save(reservation);
+
+        try {
+            if (saved.getGuest() != null) {
+                notificationService.createAndPush(
+                        saved.getGuest(),
+                        NotificationType.SYSTEM,
+                        "Phát sinh chi phí",
+                        String.format("Đơn %s phát sinh thêm %,d VND", saved.getReservationCode(), request.getAmount()),
+                        saved.getReservationId()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Charge notification push failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
+        }
+
+        return toReservationResponse(saved);
     }
 
     @Override
@@ -632,6 +746,16 @@ public class ReservationService implements ReservationServiceImp {
             }
         }
         return false;
+    }
+
+    private Roles resolveActorRole(Jwt jwt) {
+        if (hasAnyRole(jwt, Roles.ADMIN)) {
+            return Roles.ADMIN;
+        }
+        if (hasAnyRole(jwt, Roles.STAFF)) {
+            return Roles.STAFF;
+        }
+        return Roles.GUEST;
     }
 
     private void requireAnyRole(Jwt jwt, Roles... roles) {

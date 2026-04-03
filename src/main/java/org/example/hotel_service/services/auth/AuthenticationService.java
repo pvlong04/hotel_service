@@ -34,6 +34,7 @@ import org.example.hotel_service.repositories.RefreshTokenRepository;
 import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.example.hotel_service.services.email.EmailService;
+import org.example.hotel_service.services.notification.NotificationServiceImp;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -66,6 +67,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
     RefreshTokenRepository refreshTokenRepository;
     AuthTokenRepository authTokenRepository;
     EmailService emailService;
+    NotificationServiceImp notificationService;
 
     JwtProperties jwtProperties;
 
@@ -111,11 +113,24 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .role(guestRole)
                 .build();
 
-//        Set<UserRole> userRoles = new HashSet<>();
-//        userRoles.add(userRole);
-//        user.setUserRoles(userRoles);
+        // Set<UserRole> userRoles = new HashSet<>();
+        // userRoles.add(userRole);
+        // user.setUserRoles(userRoles);
         user.setUserRoles(Set.of(userRole));
         User savedUser = userRepository.save(user);
+
+        try {
+            notificationService.notifyHierarchy(
+                    savedUser,
+                    Roles.GUEST,
+                    "tao",
+                    "tai khoan",
+                    savedUser.getUserId(),
+                    "username=" + savedUser.getUsername());
+        } catch (Exception ex) {
+            log.warn("Failed to notify hierarchy for guest registration {}: {}", savedUser.getUserId(),
+                    ex.getMessage());
+        }
 
         issueAndSendVerificationToken(savedUser);
 
@@ -132,20 +147,19 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .build();
     }
 
-
     @Transactional
     public AuthResponse login(LoginRequest request, String userAgent, String ipAddress) {
         String identifier = request.getUsernameOrEmail();
         User user = userRepository.findWithProfileAndRolesByUsernameOrEmail(identifier, identifier)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_EXIT));
 
-//        if (user.getStatus() == UserStatus.PENDING) {
-//            throw new ApiException(ErrorCode.USER_INACTIVE);
-//        }
-//
-//        if (user.getStatus() == UserStatus.BANNED) {
-//            throw new ApiException(ErrorCode.USER_ALREADY_BANNED);
-//        }
+        // if (user.getStatus() == UserStatus.PENDING) {
+        // throw new ApiException(ErrorCode.USER_INACTIVE);
+        // }
+        //
+        // if (user.getStatus() == UserStatus.BANNED) {
+        // throw new ApiException(ErrorCode.USER_ALREADY_BANNED);
+        // }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ApiException(ErrorCode.USER_INACTIVE_BANE);
         }
@@ -177,7 +191,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
 
         User user = storedToken.getUser();
         if (user.getStatus() == UserStatus.BANNED) {
-            throw new ApiException(ErrorCode.   USER_ALREADY_BANNED);
+            throw new ApiException(ErrorCode.USER_ALREADY_BANNED);
         }
         return getAuthResponse(userAgent, ipAddress, user);
     }
@@ -235,7 +249,8 @@ public class AuthenticationService implements AuthenticationServiceImp {
         LocalDateTime now = LocalDateTime.now();
 
         // Idempotent behavior: if this token was already consumed and user is ACTIVE,
-        // treat subsequent calls as success (common with repeated clicks/dev strict mode).
+        // treat subsequent calls as success (common with repeated clicks/dev strict
+        // mode).
         if (authToken.getUsedAt() != null) {
             if (user.getStatus() == UserStatus.ACTIVE) {
                 return;
@@ -391,9 +406,12 @@ public class AuthenticationService implements AuthenticationServiceImp {
     }
 
     private int rolePriority(String role) {
-        if (Roles.ADMIN.name().equals(role)) return 1;
-        if (Roles.STAFF.name().equals(role)) return 2;
-        if (Roles.GUEST.name().equals(role)) return 3;
+        if (Roles.ADMIN.name().equals(role))
+            return 1;
+        if (Roles.STAFF.name().equals(role))
+            return 2;
+        if (Roles.GUEST.name().equals(role))
+            return 3;
         return Integer.MAX_VALUE;
     }
 }

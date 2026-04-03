@@ -25,4 +25,10 @@ public interface RoomServiceImp {
     List<RoomResponse> getAvailableRooms(LocalDate checkIn, LocalDate checkOut);
 
     List<RoomResponse.ImageItem> getRoomImages(Long id);
+
+    RoomResponse.ImageItem addRoomImage(Long roomId, String url, String caption, Jwt jwt);
+
+    void deleteRoomImage(Long roomId, Long imageId, Jwt jwt);
+
+    void setPrimaryImage(Long roomId, Long imageId, Jwt jwt);
 }

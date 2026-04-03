@@ -1,6 +1,7 @@
 package org.example.hotel_service.repositories;
 
 import org.example.hotel_service.entities.User;
+import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,7 +11,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.List;
+import java.util.Set;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -40,6 +44,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> searchUsers(@Param("keyword") String keyword,
                            @Param("status") UserStatus status,
                            Pageable pageable);
+
+    @EntityGraph(attributePaths = {"profile", "userRoles", "userRoles.role"})
+    @Query("""
+            SELECT DISTINCT u FROM User u
+            JOIN u.userRoles ur
+            JOIN ur.role r
+            WHERE r.name IN :roles
+            """)
+    List<User> findDistinctByAnyRoleIn(@Param("roles") Set<Roles> roles);
 }
 
 

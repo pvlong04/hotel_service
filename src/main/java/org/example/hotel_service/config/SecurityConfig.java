@@ -1,5 +1,6 @@
 package org.example.hotel_service.config;
 
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,13 +27,22 @@ public class SecurityConfig {
     private final JwtProperties jwtProperties;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) {
+    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.authorizeHttpRequests(auth -> auth
+                .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD, DispatcherType.ASYNC).permitAll()
+                .requestMatchers("/error", "/error/**").permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_URL )
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, "/payments/vnpay/confirm")
                 .permitAll()
                 .requestMatchers(HttpMethod.GET, "/auth/verify-email")
+                .permitAll()
+
+                .requestMatchers(HttpMethod.POST, "/ai/chat/**")
+                .permitAll()
+
+                // WebSocket endpoint
+                .requestMatchers("/ws/**")
                 .permitAll()
 
                 // Public GET endpoints
@@ -75,4 +85,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(10);
     }
 }
-

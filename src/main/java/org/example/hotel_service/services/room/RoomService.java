@@ -19,6 +19,8 @@ import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.FloorRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
+import org.example.hotel_service.repositories.UserRepository;
+import org.example.hotel_service.services.notification.NotificationServiceImp;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +46,8 @@ public class RoomService implements RoomServiceImp {
     RoomTypeRepository roomTypeRepository;
     FloorRepository floorRepository;
     ImageStorageProperties imageStorageProperties;
+    UserRepository userRepository;
+    NotificationServiceImp notificationService;
 
 
     @Override
@@ -101,7 +105,7 @@ public class RoomService implements RoomServiceImp {
     @Override
     @Transactional
     public RoomResponse createRoom(RoomRequest request, Jwt jwt) {
-        requireAnyRole(jwt, Roles.ADMIN);
+        requireAnyRole(jwt, Roles.ADMIN, Roles.STAFF);
         String normalizedRoomNumber = normalizeRoomNumber(request.getRoomNumber());
 
         if (roomRepository.existsByRoomNumber(normalizedRoomNumber)) {
@@ -135,6 +139,8 @@ public class RoomService implements RoomServiceImp {
             saved.getImages().add(image);
             saved = roomRepository.save(saved);
         }
+
+        notifyHierarchyForRoomAction(jwt, "tao", saved);
 
         return toResponse(saved);
     }
@@ -178,6 +184,7 @@ public class RoomService implements RoomServiceImp {
         }
 
         Room saved = roomRepository.save(room);
+        notifyHierarchyForRoomAction(jwt, "cap nhat", saved);
         return toResponse(saved);
     }
 
@@ -188,6 +195,7 @@ public class RoomService implements RoomServiceImp {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
         roomRepository.delete(room);
+        notifyHierarchyForRoomAction(jwt, "xoa", room);
     }
 
     @Override
@@ -206,6 +214,86 @@ public class RoomService implements RoomServiceImp {
         Room room = roomRepository.findWithDetailsByRoomId(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
         return mapImages(room.getImages());
+    }
+
+    @Override
+    @Transactional
+    public RoomResponse.ImageItem addRoomImage(Long roomId, String url, String caption, Jwt jwt) {
+        requireAnyRole(jwt, Roles.ADMIN, Roles.STAFF);
+        Room room = roomRepository.findWithDetailsByRoomId(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
+
+        int nextSort = room.getImages().stream()
+                .mapToInt(img -> img.getSortOrder() != null ? img.getSortOrder() : 0)
+                .max()
+                .orElse(-1) + 1;
+
+        boolean hasPrimary = room.getImages().stream().anyMatch(img -> Boolean.TRUE.equals(img.getIsPrimary()));
+
+        RoomImage image = RoomImage.builder()
+                .room(room)
+                .url(url.trim())
+                .caption(caption != null ? caption.trim() : "Ảnh phòng " + room.getRoomNumber())
+                .isPrimary(!hasPrimary) // First image becomes primary
+                .sortOrder(nextSort)
+                .build();
+        room.getImages().add(image);
+        roomRepository.save(room);
+
+        return RoomResponse.ImageItem.builder()
+                .imageId(image.getImageId())
+                .url(normalizeImageUrl(image.getUrl()))
+                .caption(image.getCaption())
+                .isPrimary(image.getIsPrimary())
+                .sortOrder(image.getSortOrder())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void deleteRoomImage(Long roomId, Long imageId, Jwt jwt) {
+        requireAnyRole(jwt, Roles.ADMIN, Roles.STAFF);
+        Room room = roomRepository.findWithDetailsByRoomId(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
+
+        RoomImage toRemove = room.getImages().stream()
+                .filter(img -> img.getImageId().equals(imageId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+
+        boolean wasPrimary = Boolean.TRUE.equals(toRemove.getIsPrimary());
+        room.getImages().remove(toRemove);
+
+        // If deleted the primary, assign next image as primary
+        if (wasPrimary && !room.getImages().isEmpty()) {
+            room.getImages().get(0).setIsPrimary(true);
+        }
+
+        roomRepository.save(room);
+    }
+
+    @Override
+    @Transactional
+    public void setPrimaryImage(Long roomId, Long imageId, Jwt jwt) {
+        requireAnyRole(jwt, Roles.ADMIN, Roles.STAFF);
+        Room room = roomRepository.findWithDetailsByRoomId(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
+
+        boolean found = false;
+        for (RoomImage img : room.getImages()) {
+            if (img.getImageId().equals(imageId)) {
+                img.setIsPrimary(true);
+                found = true;
+            } else {
+                img.setIsPrimary(false);
+            }
+        }
+
+        if (!found) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+
+        roomRepository.save(room);
     }
 
     private String normalizeRoomNumber(String roomNumber) {
@@ -257,6 +345,48 @@ public class RoomService implements RoomServiceImp {
             }
         }
         throw new ApiException(ErrorCode.ACCESS_DENIED);
+    }
+
+    private Roles resolveActorRole(Jwt jwt) {
+        Set<String> roles = extractRoles(jwt);
+        if (roles.contains(Roles.ADMIN.name())) {
+            return Roles.ADMIN;
+        }
+        if (roles.contains(Roles.STAFF.name())) {
+            return Roles.STAFF;
+        }
+        return Roles.GUEST;
+    }
+
+    private Long extractUserId(Jwt jwt) {
+        Object userIdClaim = jwt.getClaims().get("userId");
+        if (userIdClaim instanceof Number number) {
+            return number.longValue();
+        }
+        if (userIdClaim instanceof String text && !text.isBlank()) {
+            return Long.parseLong(text);
+        }
+        return null;
+    }
+
+    private void notifyHierarchyForRoomAction(Jwt jwt, String action, Room room) {
+        try {
+            Long actorId = extractUserId(jwt);
+            if (actorId == null) {
+                return;
+            }
+
+            userRepository.findById(actorId).ifPresent(actor -> notificationService.notifyHierarchy(
+                    actor,
+                    resolveActorRole(jwt),
+                    action,
+                    "phong",
+                    room.getRoomId(),
+                    room.getRoomNumber()
+            ));
+        } catch (Exception ex) {
+            log.warn("Hierarchy room notification failed: {}", ex.getMessage());
+        }
     }
 
     private RoomResponse toResponse(Room room) {

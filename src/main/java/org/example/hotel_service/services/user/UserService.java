@@ -19,6 +19,7 @@ import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.mapper.UserMapper;
 import org.example.hotel_service.repositories.RoleRepository;
 import org.example.hotel_service.repositories.UserRepository;
+import org.example.hotel_service.services.notification.NotificationServiceImp;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +45,7 @@ public class UserService implements UserServiceImp {
     RoleRepository roleRepository;
     PasswordEncoder passwordEncoder;
     UserMapper mapper;
+    NotificationServiceImp notificationService;
 
     // ─────────────────── helpers ───────────────────
 
@@ -76,6 +78,16 @@ public class UserService implements UserServiceImp {
 
     private boolean hasRole(Jwt jwt, Roles role) {
         return extractRoles(jwt).contains(role.name());
+    }
+
+    private Roles resolveActorRole(Jwt jwt) {
+        if (hasRole(jwt, Roles.ADMIN)) {
+            return Roles.ADMIN;
+        }
+        if (hasRole(jwt, Roles.STAFF)) {
+            return Roles.STAFF;
+        }
+        return Roles.GUEST;
     }
 
     private UserResponse toResponse(User user) {
@@ -232,6 +244,24 @@ public class UserService implements UserServiceImp {
 
         User saved = userRepository.save(user);
         log.info("ADMIN {} created new user: {}", extractUserId(jwt), saved.getUserId());
+
+        try {
+            Long actorId = extractUserId(jwt);
+            User actor = actorId != null ? userRepository.findById(actorId).orElse(null) : null;
+            if (actor != null) {
+                notificationService.notifyHierarchy(
+                        actor,
+                        Roles.ADMIN,
+                        "tao",
+                        "tai khoan",
+                        saved.getUserId(),
+                        "username=" + saved.getUsername()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to notify hierarchy for createUser {}: {}", saved.getUserId(), ex.getMessage());
+        }
+
         return toResponse(saved);
     }
 
@@ -284,6 +314,23 @@ public class UserService implements UserServiceImp {
 
         User saved = userRepository.save(user);
         log.info("User {} updated by requester {}", userId, requesterId);
+
+        try {
+            User actor = requesterId != null ? userRepository.findById(requesterId).orElse(null) : null;
+            if (actor != null) {
+                notificationService.notifyHierarchy(
+                        actor,
+                        resolveActorRole(jwt),
+                        "cap nhat",
+                        "tai khoan",
+                        saved.getUserId(),
+                        "username=" + saved.getUsername()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to notify hierarchy for updateUser {}: {}", saved.getUserId(), ex.getMessage());
+        }
+
         return toResponse(saved);
     }
 
@@ -302,8 +349,25 @@ public class UserService implements UserServiceImp {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
+        User actor = requesterId != null ? userRepository.findById(requesterId).orElse(null) : null;
+
         userRepository.delete(user);
         log.info("ADMIN {} deleted user {}", requesterId, userId);
+
+        try {
+            if (actor != null) {
+                notificationService.notifyHierarchy(
+                        actor,
+                        Roles.ADMIN,
+                        "xoa",
+                        "tai khoan",
+                        userId,
+                        "username=" + user.getUsername()
+                );
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to notify hierarchy for deleteUser {}: {}", userId, ex.getMessage());
+        }
     }
 
     @Override

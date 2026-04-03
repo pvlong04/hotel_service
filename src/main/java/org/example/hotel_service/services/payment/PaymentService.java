@@ -3,6 +3,7 @@ package org.example.hotel_service.services.payment;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.config.VnPayProperties;
 import org.example.hotel_service.dtos.request.VnPayCreateRequest;
@@ -18,6 +19,7 @@ import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.PaymentRepository;
 import org.example.hotel_service.repositories.ReservationRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,10 @@ public class PaymentService implements PaymentServiceImp {
     PaymentRepository paymentRepository;
     ReservationRepository reservationRepository;
     VnPayProperties vnPayProperties;
+
+    @Value("${app.payment.vnpay.pending-timeout-minutes:16}")
+    @NonFinal
+    int pendingTimeoutMinutes;
 
 
     @Transactional
@@ -176,7 +182,10 @@ public class PaymentService implements PaymentServiceImp {
         if (!success) {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setNote("VNPay thanh toan that bai. Code=" + (responseCode != null ? responseCode : "N/A"));
-            return toPaymentResponse(paymentRepository.save(payment));
+            cancelReservationForPaymentFailure(payment.getReservation(), "VNPay thanh toan that bai hoac bi huy");
+            Payment saved = paymentRepository.save(payment);
+            reservationRepository.save(payment.getReservation());
+            return toPaymentResponse(saved);
         }
 
         payment.setStatus(PaymentStatus.COMPLETED);
@@ -206,6 +215,46 @@ public class PaymentService implements PaymentServiceImp {
         ensureReservationReadable(payment.getReservation(), jwt);
 
         return toPaymentResponse(payment);
+    }
+
+    @Transactional
+    public int cancelExpiredPendingVnPayPayments() {
+        LocalDateTime expiredAt = LocalDateTime.now().minusMinutes(Math.max(1, pendingTimeoutMinutes));
+        List<Payment> stalePayments = paymentRepository.findByProviderAndStatusAndCreatedAtBefore(
+                "VNPAY", PaymentStatus.PENDING, expiredAt
+        );
+
+        if (stalePayments.isEmpty()) {
+            return 0;
+        }
+
+        int cancelledCount = 0;
+        for (Payment payment : stalePayments) {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setNote("VNPay qua han thanh toan - tu dong huy don");
+            cancelReservationForPaymentFailure(payment.getReservation(), "Qua han thanh toan VNPay");
+            paymentRepository.save(payment);
+            reservationRepository.save(payment.getReservation());
+            cancelledCount++;
+        }
+
+        if (cancelledCount > 0) {
+            log.info("Auto cancelled {} expired VNPay payment(s)", cancelledCount);
+        }
+        return cancelledCount;
+    }
+
+    private void cancelReservationForPaymentFailure(Reservation reservation, String reason) {
+        if (reservation == null || reservation.getStatus() == null) {
+            return;
+        }
+
+        ReservationStatus status = reservation.getStatus();
+        if (status == ReservationStatus.PENDING || status == ReservationStatus.CONFIRMED) {
+            reservation.setStatus(ReservationStatus.CANCELLED);
+            reservation.setCancelReason(reason);
+            reservation.setCancelledAt(LocalDateTime.now());
+        }
     }
 
     private void validateVnPayConfig() {

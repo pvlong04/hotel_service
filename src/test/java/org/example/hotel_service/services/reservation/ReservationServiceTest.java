@@ -38,8 +38,6 @@ class ReservationServiceTest {
     @Mock
     ReservationRepository reservationRepository;
     @Mock
-    HotelRepository hotelRepository;
-    @Mock
     UserRepository userRepository;
     @Mock
     RoomRepository roomRepository;
@@ -71,7 +69,6 @@ class ReservationServiceTest {
     @Test
     void checkAvailability_shouldThrowWhenDateRangeInvalid() {
         CheckAvailabilityRequest request = CheckAvailabilityRequest.builder()
-                .hotelId(1)
                 .checkInDate(LocalDate.now().plusDays(2))
                 .checkOutDate(LocalDate.now().plusDays(1))
                 .build();

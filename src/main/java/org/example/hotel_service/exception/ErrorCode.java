@@ -46,7 +46,8 @@ public enum ErrorCode {
     EMAIL_VERIFICATION_TOKEN_INVALID(1034, "Token xac thuc email khong hop le hoac da het han"),
     EMAIL_ALREADY_VERIFIED(1035, "Tai khoan da duoc kich hoat truoc do"),
     RUNTIME_ERROR(1036, "Lỗi thực thi"),
-    INVALID_REQUEST(1037, "File rỗng hoặc không hợp lệ"),;
+    INVALID_REQUEST(1037, "File rỗng hoặc không hợp lệ"),
+    NOT_FOUND(1038, "Không tìm thấy tài nguyên");
     int code;
     String message;
 }

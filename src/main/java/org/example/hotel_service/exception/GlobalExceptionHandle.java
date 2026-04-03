@@ -2,7 +2,6 @@ package org.example.hotel_service.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.api.ApiResponse;
-import org.hibernate.boot.model.naming.IllegalIdentifierException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,7 +58,7 @@ public class GlobalExceptionHandle {
     }
 
     @ExceptionHandler(value = IllegalArgumentException.class)
-    ResponseEntity<ApiResponse<?>> handingIllegalArgumentException(IllegalIdentifierException exception) {
+    ResponseEntity<ApiResponse<?>> handingIllegalArgumentException(IllegalArgumentException exception) {
         log.warn("Illegal argument: {}", exception.getMessage());
         ApiResponse<?> apiResponse = ApiResponse.builder()
                 .code(ErrorCode.ILLEGAL_ARGUMENT.getCode())
@@ -104,5 +103,4 @@ public class GlobalExceptionHandle {
         return ResponseEntity.badRequest().body(apiResponse);
     }
 }
-
 

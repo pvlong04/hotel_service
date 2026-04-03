@@ -94,4 +94,37 @@ public class RoomController {
         List<RoomResponse.ImageItem> result = roomService.getRoomImages(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách ảnh phòng thành công", result));
     }
+
+    @PostMapping("/{id}/images")
+    public ResponseEntity<ApiResponse<RoomResponse.ImageItem>> addRoomImage(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String url = body.get("url");
+        String caption = body.get("caption");
+        RoomResponse.ImageItem result = roomService.addRoomImage(id, url, caption, jwt);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Thêm ảnh thành công", result));
+    }
+
+    @DeleteMapping("/{id}/images/{imageId}")
+    public ResponseEntity<ApiResponse<Void>> deleteRoomImage(
+            @PathVariable Long id,
+            @PathVariable Long imageId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        roomService.deleteRoomImage(id, imageId, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Xóa ảnh thành công", null));
+    }
+
+    @PutMapping("/{id}/images/{imageId}/primary")
+    public ResponseEntity<ApiResponse<Void>> setPrimaryImage(
+            @PathVariable Long id,
+            @PathVariable Long imageId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        roomService.setPrimaryImage(id, imageId, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Đã đặt ảnh chính thành công", null));
+    }
 }
