@@ -22,7 +22,17 @@ import javax.crypto.spec.SecretKeySpec;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_URL = {"/auth/register","/auth/login", "/auth/refresh", "/auth/logout", "/auth/token", "/auth/introspect", "/auth/resend-verification"};
+    private static final String[] PUBLIC_URL = {
+            "/auth/register",
+            "/auth/login",
+            "/auth/refresh",
+            "/auth/logout",
+            "/auth/token",
+            "/auth/introspect",
+            "/auth/resend-verification",
+            "/auth/forgot-password",
+            "/auth/reset-password"
+    };
 
     private final JwtProperties jwtProperties;
 

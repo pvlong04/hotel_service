@@ -4,7 +4,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.example.hotel_service.config.ImageStorageProperties;
 import org.example.hotel_service.dtos.request.RoomRequest;
 import org.example.hotel_service.dtos.response.PageResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
@@ -13,14 +12,17 @@ import org.example.hotel_service.entities.Room;
 import org.example.hotel_service.entities.RoomImage;
 import org.example.hotel_service.entities.RoomType;
 import org.example.hotel_service.enums.Roles;
+import org.example.hotel_service.enums.ReservationStatus;
 import org.example.hotel_service.enums.RoomStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.FloorRepository;
+import org.example.hotel_service.repositories.ReservationItemRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.example.hotel_service.services.notification.NotificationServiceImp;
+import org.example.hotel_service.mapper.RoomMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,12 +31,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URI;
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -45,9 +48,10 @@ public class RoomService implements RoomServiceImp {
     RoomRepository roomRepository;
     RoomTypeRepository roomTypeRepository;
     FloorRepository floorRepository;
-    ImageStorageProperties imageStorageProperties;
+    ReservationItemRepository reservationItemRepository;
     UserRepository userRepository;
     NotificationServiceImp notificationService;
+    RoomMapper roomMapper;
 
 
     @Override
@@ -57,7 +61,7 @@ public class RoomService implements RoomServiceImp {
         Page<Room> roomPage = roomRepository.findAllBy(pageable);
 
         return PageResponse.<RoomResponse>builder()
-                .content(roomPage.getContent().stream().map(this::toResponse).collect(Collectors.toList()))
+                .content(roomPage.getContent().stream().map(roomMapper::toResponse).collect(Collectors.toList()))
                 .page(roomPage.getNumber())
                 .size(roomPage.getSize())
                 .totalElements(roomPage.getTotalElements())
@@ -82,7 +86,7 @@ public class RoomService implements RoomServiceImp {
                 : roomRepository.findAllBy(pageable);
 
         return PageResponse.<RoomResponse>builder()
-                .content(roomPage.getContent().stream().map(this::toResponse).collect(Collectors.toList()))
+                .content(roomPage.getContent().stream().map(roomMapper::toResponse).collect(Collectors.toList()))
                 .page(roomPage.getNumber())
                 .size(roomPage.getSize())
                 .totalElements(roomPage.getTotalElements())
@@ -99,7 +103,7 @@ public class RoomService implements RoomServiceImp {
     public RoomResponse getRoomById(Long id) {
         Room room = roomRepository.findWithDetailsByRoomId(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
-        return toResponse(room);
+        return roomMapper.toResponse(room);
     }
 
     @Override
@@ -142,7 +146,7 @@ public class RoomService implements RoomServiceImp {
 
         notifyHierarchyForRoomAction(jwt, "tao", saved);
 
-        return toResponse(saved);
+        return roomMapper.toResponse(saved);
     }
 
     @Override
@@ -185,7 +189,7 @@ public class RoomService implements RoomServiceImp {
 
         Room saved = roomRepository.save(room);
         notifyHierarchyForRoomAction(jwt, "cap nhat", saved);
-        return toResponse(saved);
+        return roomMapper.toResponse(saved);
     }
 
     @Override
@@ -205,7 +209,46 @@ public class RoomService implements RoomServiceImp {
             throw new ApiException(ErrorCode.INVALID_DATE_RANGE);
         }
         List<Room> rooms = roomRepository.findAvailableRooms(checkIn, checkOut);
-        return rooms.stream().map(this::toResponse).collect(Collectors.toList());
+        return rooms.stream().map(roomMapper::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomResponse> getHotRooms(LocalDate checkIn, LocalDate checkOut, int limit) {
+        if (checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
+            throw new ApiException(ErrorCode.INVALID_DATE_RANGE);
+        }
+
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        List<Room> availableRooms = roomRepository.findAvailableRooms(checkIn, checkOut);
+        if (availableRooms.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> roomIds = availableRooms.stream().map(Room::getRoomId).toList();
+        List<Object[]> bookingCounts = reservationItemRepository.countBookingsByRoomIds(
+                roomIds,
+                List.of(ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN, ReservationStatus.CHECKED_OUT)
+        );
+
+        Map<Long, Long> countByRoomId = bookingCounts.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
+        Map<Long, Room> roomById = availableRooms.stream()
+                .collect(Collectors.toMap(Room::getRoomId, Function.identity()));
+
+        List<Room> rankedRooms = roomIds.stream()
+                .map(roomById::get)
+                .sorted(Comparator
+                        .comparingLong((Room room) -> countByRoomId.getOrDefault(room.getRoomId(), 0L)).reversed()
+                        .thenComparing(Room::getRoomId))
+                .limit(safeLimit)
+                .toList();
+
+        return rankedRooms.stream().map(roomMapper::toResponse).collect(Collectors.toList());
     }
 
     @Override
@@ -213,7 +256,7 @@ public class RoomService implements RoomServiceImp {
     public List<RoomResponse.ImageItem> getRoomImages(Long id) {
         Room room = roomRepository.findWithDetailsByRoomId(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND));
-        return mapImages(room.getImages());
+        return roomMapper.mapImages(room.getImages());
     }
 
     @Override
@@ -240,13 +283,7 @@ public class RoomService implements RoomServiceImp {
         room.getImages().add(image);
         roomRepository.save(room);
 
-        return RoomResponse.ImageItem.builder()
-                .imageId(image.getImageId())
-                .url(normalizeImageUrl(image.getUrl()))
-                .caption(image.getCaption())
-                .isPrimary(image.getIsPrimary())
-                .sortOrder(image.getSortOrder())
-                .build();
+        return roomMapper.toImageItem(image);
     }
 
     @Override
@@ -387,63 +424,5 @@ public class RoomService implements RoomServiceImp {
         } catch (Exception ex) {
             log.warn("Hierarchy room notification failed: {}", ex.getMessage());
         }
-    }
-
-    private RoomResponse toResponse(Room room) {
-        return RoomResponse.builder()
-                .roomId(room.getRoomId())
-                .roomNumber(room.getRoomNumber())
-                .roomTypeId(room.getRoomType() != null ? room.getRoomType().getRoomTypeId() : null)
-                .roomTypeCode(room.getRoomType() != null ? room.getRoomType().getCode() : null)
-                .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : null)
-                .floorId(room.getFloor() != null ? room.getFloor().getFloorId() : null)
-                .floorCode(room.getFloor() != null ? room.getFloor().getCode() : null)
-                .floorName(room.getFloor() != null ? room.getFloor().getName() : null)
-                .status(room.getStatus() != null ? room.getStatus().name() : null)
-                .note(room.getNote())
-                .createdAt(room.getCreatedAt())
-                .updatedAt(room.getUpdatedAt())
-                .images(mapImages(room.getImages()))
-                .build();
-    }
-
-    private List<RoomResponse.ImageItem> mapImages(List<RoomImage> images) {
-        if (images == null) {
-            return List.of();
-        }
-        return images.stream()
-                .sorted(Comparator.comparing(RoomImage::getSortOrder, Comparator.nullsLast(Integer::compareTo)))
-                .map(img -> RoomResponse.ImageItem.builder()
-                        .imageId(img.getImageId())
-                        .url(normalizeImageUrl(img.getUrl()))
-                        .caption(img.getCaption())
-                        .isPrimary(img.getIsPrimary())
-                        .sortOrder(img.getSortOrder())
-                        .build())
-                .collect(Collectors.toList());
-    }
-
-    private String normalizeImageUrl(String url) {
-        if (url == null || url.isBlank()) {
-            return url;
-        }
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-            return url;
-        }
-        String baseUrl = imageStorageProperties.getBaseUrl();
-        if (baseUrl == null || baseUrl.isBlank()) {
-            return url;
-        }
-
-        String normalizedBase = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        if (!url.startsWith("/")) {
-            // Filename-only legacy values map to configured /images base.
-            return normalizedBase + "/" + url;
-        }
-
-        // Absolute path legacy values should be resolved from backend origin.
-        URI baseUri = URI.create(normalizedBase);
-        String origin = baseUri.getScheme() + "://" + baseUri.getAuthority();
-        return origin + url;
     }
 }

@@ -43,6 +43,7 @@ public class AIChatService implements AIChatServiceImp {
     static final String STATUS_OK = "OK";
     static final String STATUS_FALLBACK = "FALLBACK";
     static final String STATUS_ERROR = "ERROR";
+    static final String STATUS_ENDED = "ENDED";
 
     // Keywords that indicate a room-related question
     static final List<String> ROOM_KEYWORDS = List.of(
@@ -54,6 +55,11 @@ public class AIChatService implements AIChatServiceImp {
             "rẻ", "re", "tiết kiệm", "tiet kiem", "cheap",
             "đắt", "dat", "cao cấp", "cao cap", "luxury",
             "view", "biển", "bien", "thành phố", "thanh pho"
+    );
+
+    static final List<String> FAREWELL_KEYWORDS = List.of(
+            "tam biet", "tạm biệt", "bye", "goodbye", "see you", "hen gap lai", "hẹn gặp lại",
+            "chao nhe", "chào nhé", "ket thuc", "kết thúc", "dung tai day", "dừng tại đây"
     );
 
     ChatClient chatClient;
@@ -100,6 +106,21 @@ public class AIChatService implements AIChatServiceImp {
     public AIResponse chat(String message, String sessionId) {
         String normalizedMessage = message == null ? "" : message.trim();
         String normalizedSessionId = (sessionId == null || sessionId.isBlank()) ? null : sessionId.trim();
+
+        // End chat early when user says goodbye.
+        if (isFarewellMessage(normalizedMessage)) {
+            if (normalizedSessionId != null) {
+                conversationHistory.remove(normalizedSessionId);
+            }
+            return AIResponse.builder()
+                    .answer("Cảm ơn bạn đã trò chuyện cùng Luxury Hotel & Resort. Chúc bạn một ngày thật tốt đẹp, hẹn gặp lại bạn! 👋")
+                    .sessionId(normalizedSessionId)
+                    .status(STATUS_ENDED)
+                    .modelUsed(configuredModel)
+                    .warning("Phiên trò chuyện đã được kết thúc theo yêu cầu của bạn")
+                    .suggestedRooms(null)
+                    .build();
+        }
 
         // 1) Build a dynamic system prompt that includes real hotel data
         String systemPrompt = buildDynamicSystemPrompt();
@@ -167,22 +188,28 @@ public class AIChatService implements AIChatServiceImp {
     private String buildDynamicSystemPrompt() {
         StringBuilder sb = new StringBuilder();
         sb.append("""
-                Bạn là trợ lý ảo thông minh của khách sạn Luxury Hotel & Resort.
+                Bạn là trợ lý tư vấn trực tuyến chính thức của Luxury Hotel & Resort.
 
-                Nhiệm vụ của bạn:
-                - Hỗ trợ khách hàng về thông tin phòng, giá cả, tiện ích và dịch vụ của khách sạn.
-                - Hướng dẫn quy trình đặt phòng, thanh toán, check-in/check-out.
-                - Giải đáp các câu hỏi về chính sách hủy phòng, đổi phòng.
-                - Gợi ý các phòng phù hợp dựa trên nhu cầu khách hàng.
-                - Khi khách hỏi về phòng, hãy sử dụng THÔNG TIN PHÒNG THỰC TẾ bên dưới để trả lời chính xác.
+                Vai trò và mục tiêu:
+                - Tư vấn chuyên nghiệp, rõ ràng, trung thực cho khách đang tìm hiểu hoặc chuẩn bị đặt phòng.
+                - Giúp khách ra quyết định nhanh bằng thông tin cụ thể: loại phòng, giá, sức chứa, giường, tiện nghi và chính sách.
+                - Đề xuất phương án phù hợp theo nhu cầu thực tế của khách (ngân sách, số người, mục đích chuyến đi, ưu tiên tiện ích).
+                - Hướng dẫn từng bước khi khách cần thao tác: chọn phòng, đặt phòng, thanh toán, check-in/check-out.
+                - Duy trì trải nghiệm dịch vụ cao cấp: lịch sự, chủ động, đúng trọng tâm, dễ hiểu.
 
-                Thông tin chung khách sạn:
+                Tiêu chuẩn phong cách trả lời:
+                - Giọng văn chuyên nghiệp, thân thiện, tự nhiên như nhân viên tư vấn khách sạn cao cấp.
+                - Trả lời theo ngữ cảnh câu hỏi; ưu tiên thông tin khách cần nhất ở phần đầu.
+                - Khi câu hỏi mơ hồ, đặt 1-2 câu hỏi làm rõ ngắn gọn trước khi tư vấn sâu.
+                - Không suy đoán dữ liệu nội bộ; chỉ sử dụng dữ liệu đã có trong ngữ cảnh hệ thống.
+
+                Dữ liệu khách sạn nền tảng:
                 - Tên: Luxury Hotel & Resort
-                - Địa chỉ: TP. Hồ Chí Minh, Việt Nam
-                - Tiêu chuẩn: 5 sao quốc tế
-                - Giờ check-in: 14:00 | Giờ check-out: 12:00
-                - Thanh toán: VNPay, Chuyển khoản, Tiền mặt
-                - Chính sách hủy: Miễn phí trước 24h, phí 50% trong vòng 24h
+                - Địa điểm: TP. Hồ Chí Minh, Việt Nam
+                - Phân hạng: 5 sao quốc tế
+                - Giờ check-in/check-out chuẩn: 14:00 / 12:00
+                - Phương thức thanh toán: VNPay, Chuyển khoản, Tiền mặt
+                - Chính sách hủy tiêu chuẩn: Miễn phí trước 24 giờ, tính phí 50% trong vòng 24 giờ trước giờ nhận phòng
 
                 """);
 
@@ -246,13 +273,37 @@ public class AIChatService implements AIChatServiceImp {
         }
 
         sb.append("""
-                Quy tắc trả lời:
-                - LUÔN trả lời bằng tiếng Việt, ngắn gọn, lịch sự và chuyên nghiệp.
-                - SỬ DỤNG DỮ LIỆU THỰC ở trên để trả lời chính xác về giá, loại phòng, tiện nghi.
-                - Khi khách hỏi gợi ý phòng, hãy TRẢ LỜI DỰA TRÊN THÔNG TIN PHÒNG ĐƯỢC CUNG CẤP trong câu hỏi.
-                - Nếu không biết thông tin cụ thể, gợi ý liên hệ lễ tân: 1900-xxxx.
-                - Sử dụng emoji phù hợp.
-                - Giữ câu trả lời dưới 300 từ.
+                Quy chuẩn nghiệp vụ bắt buộc:
+                - LUON tra loi bang tieng Viet.
+                - Uu tien do chinh xac cua du lieu truoc, sau do moi toi tinh van phong.
+                - Neu nguoi dung hoi ve gia, suc chua, giuong, tinh trang phong, phai dua tren DU LIEU THUC trong context.
+                - Neu khong co du lieu xac thuc, noi ro "hien tai toi chua co du lieu nay" va huong dan lien he le tan.
+                - Khong tao khuyen mai, gia dac biet, chinh sach, hoac thong tin van hanh neu he thong khong cung cap.
+                - Neu khach hang noi loi tam biet hoac ket thuc cuoc tro chuyen, hay chao tam biet lich su va ket thuc hoi thoai.
+
+                Cau truc tra loi uu tien (tuong ung tung tinh huong):
+                1) Ket luan nhanh: tra loi truc tiep vao cau hoi cua khach.
+                2) Chi tiet lien quan: dua cac thong tin quan trong nhat (gia, suc chua, giuong, tien nghi, chinh sach).
+                3) Goi y hanh dong tiep theo: de xuat buoc tiep theo ro rang (chon phong, dat phong, xac nhan nhu cau).
+
+                Quy tac tu van phong:
+                - Neu co nhieu lua chon, de xuat toi da 3 lua chon phu hop nhat va neu ly do de khach so sanh nhanh.
+                - Neu khach neu ngan sach, uu tien phong toi uu chi phi truoc, sau do moi de xuat nang cap.
+                - Neu khach di gia dinh/nhom, uu tien suc chua va tien nghi phu hop.
+                - Neu khach hoi ve thu tuc dat phong, trinh bay tung buoc ngan gon, de lam theo.
+
+                Gioi han va an toan noi dung:
+                - Khong cung cap tu van phap ly, y te, tai chinh chuyen sau.
+                - Khong tiet lo thong tin noi bo hoac du lieu nhay cam.
+                - Khong khang dinh thong tin ngoai pham vi du lieu he thong.
+
+                Dinh dang trinh bay:
+                - Uu tien cau ngan, y ro rang, de quet nhanh tren giao dien chat.
+                - Duoc phep dung bullet khi can so sanh hoac liet ke.
+                - Co the su dung emoji tiet che de tao cam giac than thien.
+                - Do dai muc tieu: 120-350 tu; du dai de day du thong tin nhung khong lan man.
+
+                Hotline le tan tham khao khi can xac nhan them: 1900-xxxx.
                 """);
 
         return sb.toString();
@@ -265,6 +316,12 @@ public class AIChatService implements AIChatServiceImp {
         if (message == null || message.isBlank()) return false;
         String lower = message.toLowerCase();
         return ROOM_KEYWORDS.stream().anyMatch(lower::contains);
+    }
+
+    private boolean isFarewellMessage(String message) {
+        if (message == null || message.isBlank()) return false;
+        String normalized = message.toLowerCase(Locale.ROOT).trim();
+        return FAREWELL_KEYWORDS.stream().anyMatch(normalized::contains);
     }
 
     /**

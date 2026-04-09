@@ -89,6 +89,16 @@ public class RoomController {
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng trống thành công", result));
     }
 
+    @GetMapping("/hot")
+    public ResponseEntity<ApiResponse<List<RoomResponse>>> getHotRooms(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
+            @RequestParam(defaultValue = "6") int limit
+    ) {
+        List<RoomResponse> result = roomService.getHotRooms(checkIn, checkOut, limit);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng hot thành công", result));
+    }
+
     @GetMapping("/{id}/images")
     public ResponseEntity<ApiResponse<List<RoomResponse.ImageItem>>> getRoomImages(@PathVariable Long id) {
         List<RoomResponse.ImageItem> result = roomService.getRoomImages(id);

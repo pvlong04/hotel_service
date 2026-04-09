@@ -46,6 +46,26 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    public void sendResetPasswordEmail(User user, String resetLink) {
+        if (!mailEnabled || user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+            return;
+        }
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(user.getEmail());
+        message.setSubject("Dat lai mat khau tai khoan khach san");
+        message.setText("Xin chao " + safe(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
+                + ",\n\n"
+                + "Chung toi da nhan duoc yeu cau dat lai mat khau cho tai khoan cua ban.\n"
+                + "Vui long bam vao link ben duoi de dat lai mat khau:\n"
+                + resetLink + "\n\n"
+                + "Link co hieu luc trong thoi gian ngan.\n"
+                + "Neu ban khong yeu cau dat lai mat khau, vui long bo qua email nay.");
+
+        mailSender.send(message);
+    }
+
     public void sendBookingConfirmationEmail(Reservation reservation) {
         if (!mailEnabled || reservation == null || reservation.getGuest() == null) {
             return;
@@ -75,7 +95,7 @@ public class EmailService {
                     .append(item.getRoomType() != null ? safe(item.getRoomType().getName()) : "N/A")
                     .append(" | ")
                     .append(safeNumber(item.getAmount()))
-                    .append(" VND\n");
+                    .append(" VND\n ");
         }
 
         content.append("\nCam on ban da su dung dich vu cua chung toi.");

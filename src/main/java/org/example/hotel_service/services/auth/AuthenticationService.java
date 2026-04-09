@@ -12,8 +12,10 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotel_service.config.JwtProperties;
+import org.example.hotel_service.dtos.request.ForgotPasswordRequest;
 import org.example.hotel_service.dtos.request.LoginRequest;
 import org.example.hotel_service.dtos.request.RefreshTokenRequest;
+import org.example.hotel_service.dtos.request.ResetPasswordRequest;
 import org.example.hotel_service.dtos.request.ResendVerificationRequest;
 import org.example.hotel_service.dtos.request.RegisterRequest;
 import org.example.hotel_service.dtos.response.AuthResponse;
@@ -48,6 +50,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.List;
 import java.util.Date;
 import java.util.Comparator;
 import java.util.Set;
@@ -82,6 +85,18 @@ public class AuthenticationService implements AuthenticationServiceImp {
     @NonFinal
     @Value("${app.mail.verify-resend-cooldown-seconds:60}")
     long resendCooldownSeconds;
+
+    @NonFinal
+    @Value("${app.mail.reset-base-url:http://localhost:3000/reset-password}")
+    String resetBaseUrl;
+
+    @NonFinal
+    @Value("${app.mail.reset-token-ttl-minutes:30}")
+    long resetTokenTtlMinutes;
+
+    @NonFinal
+    @Value("${app.mail.reset-resend-cooldown-seconds:60}")
+    long resetResendCooldownSeconds;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -136,14 +151,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
 
         return AuthResponse.builder()
                 .tokenType("Bearer")
-                .user(AuthResponse.UserInfo.builder()
-                        .userId(savedUser.getUserId())
-                        .username(savedUser.getUsername())
-                        .email(savedUser.getEmail())
-                        .fullName(savedUser.getProfile() != null ? savedUser.getProfile().getFullName() : null)
-                        .avatarUrl(savedUser.getProfile() != null ? savedUser.getProfile().getAvatarUrl() : null)
-                        .roles(extractRoleNames(savedUser))
-                        .build())
+                .user(userMapper.toAuthUserInfo(savedUser))
                 .build();
     }
 
@@ -204,15 +212,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
     }
 
     private AuthResponse getAuthResponse(User user, String accessToken, String refreshToken) {
-        Set<String> roles = extractRoleNames(user);
-        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : null)
-                .avatarUrl(user.getProfile() != null ? user.getProfile().getAvatarUrl() : null)
-                .roles(roles)
-                .build();
+        AuthResponse.UserInfo userInfo = userMapper.toAuthUserInfo(user);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -297,6 +297,56 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 });
     }
 
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        userRepository.findByEmail(request.getEmail())
+                .ifPresent(user -> {
+                    if (user.getStatus() != UserStatus.ACTIVE) {
+                        return;
+                    }
+
+                    LocalDateTime now = LocalDateTime.now();
+                    boolean inCooldown = authTokenRepository
+                            .findTopByUser_UserIdAndPurposeAndUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
+                                    user.getUserId(), TokenPurpose.RESET_PASSWORD, now)
+                            .map(existingToken -> existingToken.getCreatedAt() != null
+                                    && existingToken.getCreatedAt().plusSeconds(resetResendCooldownSeconds).isAfter(now))
+                            .orElse(false);
+
+                    if (inCooldown) {
+                        return;
+                    }
+
+                    issueAndSendResetPasswordToken(user);
+                });
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (request.getToken() == null || request.getToken().isBlank()) {
+            throw new ApiException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID);
+        }
+
+        AuthToken authToken = authTokenRepository
+                .findByTokenHashAndPurpose(hashToken(request.getToken()), TokenPurpose.RESET_PASSWORD)
+                .orElseThrow(() -> new ApiException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID));
+
+        LocalDateTime now = LocalDateTime.now();
+        if (authToken.getUsedAt() != null || authToken.getExpiresAt().isBefore(now)) {
+            throw new ApiException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID);
+        }
+
+        User user = authToken.getUser();
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        authToken.setUsedAt(now);
+
+        authTokenRepository.save(authToken);
+        userRepository.save(user);
+        revokeAllActiveRefreshTokens(user.getUserId(), now);
+    }
+
     private String generateAccessToken(User user) {
         JWSHeader jweHeader = new JWSHeader(JWSAlgorithm.HS512);
         Set<String> roles = extractRoleNames(user);
@@ -371,12 +421,46 @@ public class AuthenticationService implements AuthenticationServiceImp {
         emailService.sendVerificationEmail(user, verifyLink);
     }
 
+    private void issueAndSendResetPasswordToken(User user) {
+        String rawToken = generateRefreshTokenValue();
+        authTokenRepository.deleteByUser_UserIdAndPurposeAndUsedAtIsNull(user.getUserId(), TokenPurpose.RESET_PASSWORD);
+
+        AuthToken authToken = AuthToken.builder()
+                .user(user)
+                .purpose(TokenPurpose.RESET_PASSWORD)
+                .tokenHash(hashToken(rawToken))
+                .expiresAt(LocalDateTime.now().plusMinutes(resetTokenTtlMinutes))
+                .build();
+        authTokenRepository.save(authToken);
+
+        String resetLink = buildResetLink(rawToken);
+        emailService.sendResetPasswordEmail(user, resetLink);
+    }
+
     private String buildVerifyLink(String rawToken) {
         String baseUrl = verifyBaseUrl == null ? "" : verifyBaseUrl.trim();
         return UriComponentsBuilder.fromUriString(baseUrl)
                 .queryParam("token", rawToken)
                 .build()
                 .toUriString();
+    }
+
+    private String buildResetLink(String rawToken) {
+        String baseUrl = resetBaseUrl == null ? "" : resetBaseUrl.trim();
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("token", rawToken)
+                .build()
+                .toUriString();
+    }
+
+    private void revokeAllActiveRefreshTokens(Long userId, LocalDateTime now) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUser_UserIdAndRevokedAtIsNull(userId);
+        for (RefreshToken token : activeTokens) {
+            token.setRevokedAt(now);
+        }
+        if (!activeTokens.isEmpty()) {
+            refreshTokenRepository.saveAll(activeTokens);
+        }
     }
 
     private String hashToken(String token) {

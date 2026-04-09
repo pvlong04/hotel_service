@@ -46,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.DayOfWeek;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -150,8 +151,8 @@ public class ReservationService implements ReservationServiceImp {
                 selectedRoomIds.add(selectedRoom.getRoomId());
             }
 
-            long rate = roomType.getPricePerNight() != null ? roomType.getPricePerNight() : 0L;
-            long amount = rate * nights;
+            long rate = resolveNightlyRate(roomType, request.getCheckInDate());
+            long amount = calculateStayAmount(roomType, request.getCheckInDate(), request.getCheckOutDate());
             total += amount;
 
             ReservationItem item = ReservationItem.builder()
@@ -589,6 +590,29 @@ public class ReservationService implements ReservationServiceImp {
         if (checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
             throw new ApiException(ErrorCode.INVALID_DATE_RANGE);
         }
+    }
+
+    private long calculateStayAmount(RoomType roomType, LocalDate checkIn, LocalDate checkOut) {
+        long total = 0L;
+        for (LocalDate date = checkIn; date.isBefore(checkOut); date = date.plusDays(1)) {
+            total += resolveNightlyRate(roomType, date);
+        }
+        return total;
+    }
+
+    private long resolveNightlyRate(RoomType roomType, LocalDate stayDate) {
+        long weekdayRate = roomType.getPricePerNight() != null ? roomType.getPricePerNight() : 0L;
+        Long weekendRate = roomType.getWeekendPrice();
+        if (isWeekend(stayDate) && weekendRate != null && weekendRate > 0) {
+            return weekendRate;
+        }
+        return weekdayRate;
+    }
+
+    // Weekend policy follows RoomType docs: Friday, Saturday, Sunday.
+    private boolean isWeekend(LocalDate stayDate) {
+        DayOfWeek day = stayDate.getDayOfWeek();
+        return day == DayOfWeek.FRIDAY || day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
     }
 
 

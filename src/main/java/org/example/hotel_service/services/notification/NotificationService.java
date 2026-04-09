@@ -12,6 +12,7 @@ import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.enums.UserStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
+import org.example.hotel_service.mapper.NotificationMapper;
 import org.example.hotel_service.repositories.NotificationRepository;
 import org.example.hotel_service.repositories.UserRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -33,6 +34,7 @@ public class NotificationService implements NotificationServiceImp {
     NotificationRepository notificationRepository;
     UserRepository userRepository;
     SimpMessagingTemplate messagingTemplate;
+    NotificationMapper notificationMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -40,7 +42,7 @@ public class NotificationService implements NotificationServiceImp {
         Long userId = extractUserId(jwt);
         return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId)
                 .stream()
-                .map(this::toResponse)
+                .map(notificationMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -88,7 +90,7 @@ public class NotificationService implements NotificationServiceImp {
                 .build();
 
         Notification saved = notificationRepository.save(notification);
-        NotificationResponse response = toResponse(saved);
+        NotificationResponse response = notificationMapper.toResponse(saved);
 
         // Push via WebSocket to user-specific queue
         try {
@@ -138,18 +140,6 @@ public class NotificationService implements NotificationServiceImp {
                     referenceId
             );
         }
-    }
-
-    private NotificationResponse toResponse(Notification notification) {
-        return NotificationResponse.builder()
-                .notificationId(notification.getNotificationId())
-                .type(notification.getType() != null ? notification.getType().name() : null)
-                .title(notification.getTitle())
-                .content(notification.getContent())
-                .referenceId(notification.getReferenceId())
-                .isRead(notification.getIsRead())
-                .createdAt(notification.getCreatedAt())
-                .build();
     }
 
     private Long extractUserId(Jwt jwt) {

@@ -10,6 +10,7 @@ import org.example.hotel_service.entities.Amenity;
 import org.example.hotel_service.enums.AmenityCategory;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
+import org.example.hotel_service.mapper.AmenityMapper;
 import org.example.hotel_service.repositories.AmenityRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,12 +25,13 @@ import java.util.stream.Collectors;
 public class AmenityService implements AmenityServiceImp {
 
     AmenityRepository amenityRepository;
+    AmenityMapper amenityMapper;
 
     @Override
     @Transactional(readOnly = true)
     public List<AmenityResponse> getAllAmenities() {
         return amenityRepository.findAll().stream()
-                .map(this::toResponse)
+                .map(amenityMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -37,7 +39,7 @@ public class AmenityService implements AmenityServiceImp {
     @Transactional(readOnly = true)
     public List<AmenityResponse> getAmenitiesByCategory(AmenityCategory category) {
         return amenityRepository.findByCategory(category).stream()
-                .map(this::toResponse)
+                .map(amenityMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -46,21 +48,19 @@ public class AmenityService implements AmenityServiceImp {
     public AmenityResponse getAmenityById(Integer id) {
         Amenity amenity = amenityRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.AMENITY_NOT_FOUND));
-        return toResponse(amenity);
+        return amenityMapper.toResponse(amenity);
     }
 
     @Override
     @Transactional
     public AmenityResponse createAmenity(AmenityRequest request) {
-        Amenity amenity = Amenity.builder()
-                .name(request.getName())
-                .description(request.getDescription())
-                .icon(request.getIcon())
-                .category(request.getCategory() != null ? request.getCategory() : AmenityCategory.ROOM)
-                .build();
+        Amenity amenity = amenityMapper.toEntity(request);
+        if (amenity.getCategory() == null) {
+            amenity.setCategory(AmenityCategory.ROOM);
+        }
         Amenity saved = amenityRepository.save(amenity);
         log.info("Created amenity: id={}, name={}", saved.getAmenityId(), saved.getName());
-        return toResponse(saved);
+        return amenityMapper.toResponse(saved);
     }
 
     @Override
@@ -69,16 +69,14 @@ public class AmenityService implements AmenityServiceImp {
         Amenity amenity = amenityRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.AMENITY_NOT_FOUND));
 
-        amenity.setName(request.getName());
-        amenity.setDescription(request.getDescription());
-        amenity.setIcon(request.getIcon());
+        amenityMapper.updateEntity(request, amenity);
         if (request.getCategory() != null) {
             amenity.setCategory(request.getCategory());
         }
 
         Amenity saved = amenityRepository.save(amenity);
         log.info("Updated amenity: id={}, name={}", saved.getAmenityId(), saved.getName());
-        return toResponse(saved);
+        return amenityMapper.toResponse(saved);
     }
 
     @Override
@@ -88,16 +86,5 @@ public class AmenityService implements AmenityServiceImp {
                 .orElseThrow(() -> new ApiException(ErrorCode.AMENITY_NOT_FOUND));
         amenityRepository.delete(amenity);
         log.info("Deleted amenity: id={}, name={}", amenity.getAmenityId(), amenity.getName());
-    }
-
-    private AmenityResponse toResponse(Amenity amenity) {
-        return AmenityResponse.builder()
-                .amenityId(amenity.getAmenityId())
-                .name(amenity.getName())
-                .description(amenity.getDescription())
-                .icon(amenity.getIcon())
-                .category(amenity.getCategory() != null ? amenity.getCategory().name() : null)
-                .createdAt(amenity.getCreatedAt())
-                .build();
     }
 }

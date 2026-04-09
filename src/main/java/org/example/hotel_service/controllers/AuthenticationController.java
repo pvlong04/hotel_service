@@ -5,10 +5,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.example.hotel_service.api.ApiResponse;
+import org.example.hotel_service.dtos.request.ForgotPasswordRequest;
 import org.example.hotel_service.dtos.request.LoginRequest;
 import org.example.hotel_service.dtos.request.RefreshTokenRequest;
 import org.example.hotel_service.dtos.request.ResendVerificationRequest;
 import org.example.hotel_service.dtos.request.RegisterRequest;
+import org.example.hotel_service.dtos.request.ResetPasswordRequest;
 import org.example.hotel_service.dtos.response.AuthResponse;
 import org.example.hotel_service.services.auth.AuthenticationServiceImp;
 import org.springframework.http.HttpStatus;
@@ -63,5 +65,17 @@ public class AuthenticationController {
     ResponseEntity<ApiResponse<Void>> resendVerification(@RequestBody @Valid ResendVerificationRequest request) {
         authService.resendVerification(request);
         return ResponseEntity.ok(ApiResponse.success("Neu email ton tai, he thong da gui lai link xac thuc", null));
+    }
+
+    @PostMapping("/forgot-password")
+    ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Neu email ton tai, he thong da gui huong dan dat lai mat khau", null));
+    }
+
+    @PostMapping("/reset-password")
+    ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody @Valid ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Dat lai mat khau thanh cong", null));
     }
 }

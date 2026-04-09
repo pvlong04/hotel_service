@@ -90,35 +90,6 @@ public class UserService implements UserServiceImp {
         return Roles.GUEST;
     }
 
-    private UserResponse toResponse(User user) {
-        Set<String> roles = user.getUserRoles() == null ? Set.of()
-                : user.getUserRoles().stream()
-                .filter(ur -> ur.getRole() != null)
-                .map(ur -> ur.getRole().getName().name())
-                .collect(Collectors.toSet());
-
-        return UserResponse.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .status(user.getStatus() != null ? user.getStatus().name() : null)
-                .lastLoginAt(user.getLastLoginAt())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : null)
-                .phone(user.getProfile() != null ? user.getProfile().getPhone() : null)
-                .avatarUrl(user.getProfile() != null ? user.getProfile().getAvatarUrl() : null)
-                .address(user.getProfile() != null ? user.getProfile().getAddress() : null)
-                .dob(user.getProfile() != null ? user.getProfile().getDob() : null)
-                .gender(user.getProfile() != null && user.getProfile().getGender() != null
-                        ? user.getProfile().getGender().name()
-                        : null)
-                .nationalId(user.getProfile() != null ? user.getProfile().getNationalId() : null)
-                .nationality(user.getProfile() != null ? user.getProfile().getNationality() : null)
-                .roles(roles)
-                .build();
-    }
-
     private Set<UserRole> buildUserRoles(Set<Roles> requestRoles, User user) {
         if (requestRoles == null || requestRoles.isEmpty()) {
             throw new ApiException(ErrorCode.ROLE_NOT_FOUND);
@@ -140,7 +111,6 @@ public class UserService implements UserServiceImp {
     }
 
     private void validateCreateUserRoles(Set<Roles> requestRoles) {
-        // Business rule: ADMIN can only create STAFF accounts from this API.
         if (requestRoles == null || requestRoles.isEmpty()) {
             return;
         }
@@ -162,7 +132,7 @@ public class UserService implements UserServiceImp {
         Page<User> userPage = userRepository.searchUsers(keyword, status, pageable);
 
         List<UserResponse> content = userPage.getContent().stream()
-                .map(this::toResponse)
+                .map(mapper::toResponse)
                 .collect(Collectors.toList());
 
         return PageResponse.<UserResponse>builder()
@@ -193,7 +163,7 @@ public class UserService implements UserServiceImp {
         User user = userRepository.findWithProfileAndRolesByUserId(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        return toResponse(user);
+        return mapper.toResponse(user);
     }
 
     @Override
@@ -202,7 +172,7 @@ public class UserService implements UserServiceImp {
         Long userId = extractUserId(jwt);
         User user = userRepository.findWithProfileAndRolesByUserId(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-        return toResponse(user);
+        return mapper.toResponse(user);
     }
 
     @Override
@@ -221,12 +191,9 @@ public class UserService implements UserServiceImp {
             throw new ApiException(ErrorCode.USERNAME_ALREADY_EXISTS);
         }
 
-        User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .status(UserStatus.ACTIVE)
-                .build();
+        User user = mapper.toUser(request);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setStatus(UserStatus.ACTIVE);
 
         Profile profile = Profile.builder()
                 .user(user)
@@ -262,7 +229,7 @@ public class UserService implements UserServiceImp {
             log.warn("Failed to notify hierarchy for createUser {}: {}", saved.getUserId(), ex.getMessage());
         }
 
-        return toResponse(saved);
+        return mapper.toResponse(saved);
     }
 
     @Override
@@ -284,11 +251,7 @@ public class UserService implements UserServiceImp {
         if (profile == null) {
             profile = Profile.builder().user(user).build();
         }
-        if (request.getFullName() != null) profile.setFullName(request.getFullName());
-        if (request.getPhone() != null) profile.setPhone(request.getPhone());
-        if (request.getAvatarUrl() != null) profile.setAvatarUrl(request.getAvatarUrl());
-        if (request.getAddress() != null) profile.setAddress(request.getAddress());
-        if (request.getDob() != null) profile.setDob(request.getDob());
+        mapper.updateProfile(request, profile);
         user.setProfile(profile);
 
         // Các trường chỉ ADMIN được thay đổi
@@ -331,7 +294,7 @@ public class UserService implements UserServiceImp {
             log.warn("Failed to notify hierarchy for updateUser {}: {}", saved.getUserId(), ex.getMessage());
         }
 
-        return toResponse(saved);
+        return mapper.toResponse(saved);
     }
 
     @Override
@@ -383,6 +346,6 @@ public class UserService implements UserServiceImp {
         user.setStatus(status);
         User saved = userRepository.save(user);
         log.info("ADMIN {} changed status of user {} to {}", extractUserId(jwt), userId, status);
-        return toResponse(saved);
+        return mapper.toResponse(saved);
     }
 }

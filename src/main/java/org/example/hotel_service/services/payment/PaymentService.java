@@ -17,6 +17,7 @@ import org.example.hotel_service.enums.ReservationStatus;
 import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
+import org.example.hotel_service.mapper.PaymentMapper;
 import org.example.hotel_service.repositories.PaymentRepository;
 import org.example.hotel_service.repositories.ReservationRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +49,7 @@ public class PaymentService implements PaymentServiceImp {
     PaymentRepository paymentRepository;
     ReservationRepository reservationRepository;
     VnPayProperties vnPayProperties;
+    PaymentMapper paymentMapper;
 
     @Value("${app.payment.vnpay.pending-timeout-minutes:16}")
     @NonFinal
@@ -384,19 +386,6 @@ public class PaymentService implements PaymentServiceImp {
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
-        return PaymentResponse.builder()
-                .paymentId(payment.getPaymentId())
-                .reservationId(payment.getReservation() != null ? payment.getReservation().getReservationId() : null)
-                .guestId(payment.getGuest() != null ? payment.getGuest().getUserId() : null)
-                .amount(payment.getAmount())
-                .method(payment.getMethod() != null ? payment.getMethod().name() : null)
-                .provider(payment.getProvider())
-                .providerTransId(payment.getProviderTransId())
-                .status(payment.getStatus() != null ? payment.getStatus().name() : null)
-                .note(payment.getNote())
-                .paidAt(payment.getPaidAt())
-                .createdAt(payment.getCreatedAt())
-                .updatedAt(payment.getUpdatedAt())
-                .build();
+        return paymentMapper.toResponse(payment);
     }
 }

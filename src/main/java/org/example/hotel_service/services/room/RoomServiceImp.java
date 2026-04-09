@@ -24,6 +24,8 @@ public interface RoomServiceImp {
 
     List<RoomResponse> getAvailableRooms(LocalDate checkIn, LocalDate checkOut);
 
+    List<RoomResponse> getHotRooms(LocalDate checkIn, LocalDate checkOut, int limit);
+
     List<RoomResponse.ImageItem> getRoomImages(Long id);
 
     RoomResponse.ImageItem addRoomImage(Long roomId, String url, String caption, Jwt jwt);
