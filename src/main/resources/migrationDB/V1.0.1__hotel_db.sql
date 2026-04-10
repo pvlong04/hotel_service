@@ -40,7 +40,7 @@ SET sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
 --     - BANNED: Bị khóa, không thể đăng nhập
 --   last_login_at: Thời điểm đăng nhập lần cuối (để tracking)
 CREATE TABLE users (
-                       user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                       user_id BINARY(16) PRIMARY KEY,
                        username VARCHAR(50) NOT NULL,
                        email VARCHAR(150) NOT NULL,
                        password_hash VARCHAR(255) NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE users (
 --   nationality: Quốc tịch - quan trọng cho khách quốc tế
 CREATE TABLE profiles (
                           profile_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                          user_id BIGINT NOT NULL UNIQUE,
+                          user_id BINARY(16) NOT NULL UNIQUE,
                           full_name VARCHAR(120) NOT NULL,
                           phone VARCHAR(30) UNIQUE DEFAULT NULL,
                           avatar_url VARCHAR(500) DEFAULT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE roles (
 -- Bảng USER_ROLES: Liên kết nhiều-nhiều giữa users và roles
 -- Một user có thể có nhiều role (VD: vừa là STAFF vừa là GUEST)
 CREATE TABLE user_roles (
-                            user_id BIGINT NOT NULL,
+                            user_id BINARY(16) NOT NULL,
                             role_id INT NOT NULL,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             PRIMARY KEY (user_id, role_id),
@@ -120,7 +120,7 @@ CREATE TABLE user_roles (
 --   used_at: Thời điểm sử dụng (NULL = chưa dùng)
 CREATE TABLE auth_tokens (
                              token_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                             user_id BIGINT NOT NULL,
+                             user_id BINARY(16) NOT NULL,
                              purpose ENUM('VERIFY_EMAIL','VERIFY_EMAIL_OTP','RESET_PASSWORD') NOT NULL DEFAULT 'RESET_PASSWORD',
                              token_hash VARCHAR(255) NOT NULL,
                              expires_at DATETIME NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE auth_tokens (
 --   ip_address: Địa chỉ IP đăng nhập (để phát hiện bất thường)
 CREATE TABLE refresh_tokens (
                                 rt_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                                user_id BIGINT NOT NULL,
+                                user_id BINARY(16) NOT NULL,
                                 token_hash VARCHAR(255) NOT NULL,
                                 expires_at DATETIME NOT NULL,
                                 revoked_at DATETIME DEFAULT NULL,
@@ -169,15 +169,15 @@ CREATE TABLE refresh_tokens (
 --   image_type: Loại hình ảnh (EXTERIOR/LOBBY/RESTAURANT/POOL/OTHER)
 --   display_order: Thứ tự hiển thị
 --   is_primary: Có phải ảnh đại diện không
-CREATE TABLE hotel_images (
-                              image_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                              url VARCHAR(500) NOT NULL,
-                              type ENUM('EXTERIOR','LOBBY','RESTAURANT','POOL','FACILITY','OTHER') NOT NULL DEFAULT 'OTHER',
-                              sort_order INT NOT NULL DEFAULT 0,
-                              is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-                              caption VARCHAR(255) DEFAULT NULL,
-                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB COMMENT='Hình ảnh khách sạn';
+# CREATE TABLE hotel_images (
+#                               image_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+#                               url VARCHAR(500) NOT NULL,
+#                               type ENUM('EXTERIOR','LOBBY','RESTAURANT','POOL','FACILITY','OTHER') NOT NULL DEFAULT 'OTHER',
+#                               sort_order INT NOT NULL DEFAULT 0,
+#                               is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+#                               caption VARCHAR(255) DEFAULT NULL,
+#                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+# ) ENGINE=InnoDB COMMENT='Hình ảnh khách sạn';
 
 -- Bảng FLOORS: Các tầng trong khách sạn
 -- Giải thích:
@@ -252,7 +252,7 @@ CREATE TABLE room_type_images (
 --   icon: Tên icon (font-awesome hoặc custom)
 --   category: Phân loại tiện nghi
 CREATE TABLE amenities (
-                           amenity_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                           amenity_id INT AUTO_INCREMENT PRIMARY KEY,
                            name VARCHAR(120) NOT NULL,
                            description VARCHAR(255) DEFAULT NULL,
                            icon VARCHAR(100) DEFAULT NULL,
@@ -266,7 +266,7 @@ CREATE TABLE amenities (
 -- Bảng ROOM_TYPE_AMENITIES: Liên kết loại phòng và tiện nghi
 CREATE TABLE room_type_amenities (
                                      room_type_id BIGINT NOT NULL,
-                                     amenity_id BIGINT NOT NULL,
+                                     amenity_id INT NOT NULL,
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      PRIMARY KEY (room_type_id, amenity_id),
 
@@ -281,7 +281,6 @@ CREATE TABLE room_type_amenities (
 --   room_number: Số phòng (101, 102, 201...)
 --   status: Trạng thái phòng
 --     - AVAILABLE: Trống, có thể đặt
---     - HELD: Đang giữ chỗ (chờ thanh toán)
 --     - OCCUPIED: Đang có khách
 --     - MAINTENANCE: Đang bảo trì
 --     - REMOVED: Đã ngừng sử dụng
@@ -291,7 +290,7 @@ CREATE TABLE rooms (
                        room_number VARCHAR(50) NOT NULL,
                        room_type_id BIGINT NOT NULL,
                        floor_id INT DEFAULT NULL,
-                       status ENUM('AVAILABLE','HELD','OCCUPIED','MAINTENANCE','REMOVED') NOT NULL DEFAULT 'AVAILABLE',
+                       status ENUM('AVAILABLE','OCCUPIED','MAINTENANCE','REMOVED') NOT NULL DEFAULT 'AVAILABLE',
                        note VARCHAR(500) DEFAULT NULL,
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -344,7 +343,7 @@ CREATE TABLE room_images (
 CREATE TABLE reservations (
                               reservation_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                               reservation_code VARCHAR(40) NOT NULL UNIQUE,
-                              guest_id BIGINT NOT NULL,
+                              guest_id BINARY(16) NOT NULL,
                               status ENUM('PENDING','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED') NOT NULL DEFAULT 'PENDING',
 
     -- Ngày check-in/out dự kiến
@@ -358,19 +357,22 @@ CREATE TABLE reservations (
 
     -- Tài chính
                               total_amount BIGINT NOT NULL DEFAULT 0,
+                              room_subtotal BIGINT NOT NULL DEFAULT 0,
+                              discount_amount BIGINT NOT NULL DEFAULT 0,
+                              promotion_code VARCHAR(50) DEFAULT NULL,
                               paid_amount BIGINT NOT NULL DEFAULT 0,
 
                               -- Yêu cầu
                               special_requests TEXT DEFAULT NULL,
 
                               -- Xử lý đơn
-                              confirmed_by BIGINT DEFAULT NULL,
+                              confirmed_by BINARY(16) DEFAULT NULL,
                               confirmed_at DATETIME DEFAULT NULL,
                               checked_in_at DATETIME DEFAULT NULL,
                               checked_out_at DATETIME DEFAULT NULL,
 
                               -- Hủy
-                              cancelled_by BIGINT DEFAULT NULL,
+                              cancelled_by BINARY(16) DEFAULT NULL,
                               cancelled_at DATETIME DEFAULT NULL,
                               cancel_reason VARCHAR(500) DEFAULT NULL,
 
@@ -408,6 +410,8 @@ CREATE TABLE reservation_items (
                                    nights INT NOT NULL DEFAULT 1,
                                    amount BIGINT NOT NULL DEFAULT 0,
                                    status ENUM('BOOKED','CHECKED_IN','CHECKED_OUT','CANCELLED') NOT NULL DEFAULT 'BOOKED',
+                                   checked_in_at DATETIME DEFAULT NULL,
+                                   checked_out_at DATETIME DEFAULT NULL,
                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -432,12 +436,12 @@ CREATE TABLE reservation_items (
 CREATE TABLE reservation_charges (
                                      charge_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                      reservation_id BIGINT NOT NULL,
-                                     charge_type ENUM('EXTRA_BED','MINIBAR','ROOM_SERVICE','LAUNDRY','DAMAGE','LATE_CHECKOUT','CANCEL_FEE','OTHER') DEFAULT 'OTHER',
+                                     charge_type ENUM('EXTRA_BED','MINIBAR','ROOM_SERVICE','LAUNDRY','DAMAGE','LATE_CHECKOUT','CANCEL_FEE','OTHER') NOT NULL DEFAULT 'OTHER',
                                      description VARCHAR(500) DEFAULT NULL,
                                      quantity INT NOT NULL DEFAULT 1,
                                      unit_price INT NOT NULL DEFAULT 0,
                                      amount BIGINT NOT NULL DEFAULT 0,
-                                     created_by BIGINT DEFAULT NULL,
+                                     created_by BINARY(16) DEFAULT NULL,
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                                      INDEX idx_charge_res (reservation_id),
@@ -456,9 +460,9 @@ CREATE TABLE reservation_charges (
 CREATE TABLE payments (
                           payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                           reservation_id BIGINT NOT NULL,
-                          guest_id BIGINT NOT NULL,
+                          guest_id BINARY(16) NOT NULL,
                           amount BIGINT NOT NULL,
-                          method ENUM('CARD','CASH','BANK_TRANSFER','E_WALLET','ONLINE') NOT NULL DEFAULT 'ONLINE',
+                          method ENUM('CARD','CASH','BANK_TRANSFER','E_WALLET','ONLINE','QR_CODE') NOT NULL DEFAULT 'ONLINE',
                           provider VARCHAR(100) DEFAULT NULL,
                           provider_trans_id VARCHAR(150) DEFAULT NULL,
                           status ENUM('PENDING','COMPLETED','FAILED','REFUNDED','PARTIALLY_REFUNDED') NOT NULL DEFAULT 'PENDING',
@@ -487,7 +491,7 @@ CREATE TABLE payments (
 --   read_at: Thời điểm đọc
 CREATE TABLE notifications (
                                notification_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                               user_id BIGINT NOT NULL,
+                               user_id BINARY(16) NOT NULL,
                                type ENUM(
                                    'RESERVATION_CREATED',
                                    'RESERVATION_CONFIRMED',
@@ -532,19 +536,19 @@ CREATE TABLE notifications (
 CREATE TABLE reviews (
                          review_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                          reservation_id BIGINT NOT NULL UNIQUE,
-                         guest_id BIGINT NOT NULL,
+                         guest_id BINARY(16) NOT NULL,
 
     -- Đánh giá tổng thể
-                         rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                         rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
                          title VARCHAR(255) DEFAULT NULL,
                          content TEXT DEFAULT NULL,
 
     -- Đánh giá chi tiết (optional)
-                         cleanliness_rating TINYINT DEFAULT NULL CHECK (cleanliness_rating BETWEEN 1 AND 5),
-                         service_rating TINYINT DEFAULT NULL CHECK (service_rating BETWEEN 1 AND 5),
-                         location_rating TINYINT DEFAULT NULL CHECK (location_rating BETWEEN 1 AND 5),
-                         facilities_rating TINYINT DEFAULT NULL CHECK (facilities_rating BETWEEN 1 AND 5),
-                         value_rating TINYINT DEFAULT NULL CHECK (value_rating BETWEEN 1 AND 5),
+                         cleanliness_rating INT DEFAULT NULL CHECK (cleanliness_rating BETWEEN 1 AND 5),
+                         service_rating INT DEFAULT NULL CHECK (service_rating BETWEEN 1 AND 5),
+                         location_rating INT DEFAULT NULL CHECK (location_rating BETWEEN 1 AND 5),
+                         facilities_rating INT DEFAULT NULL CHECK (facilities_rating BETWEEN 1 AND 5),
+                         value_rating INT DEFAULT NULL CHECK (value_rating BETWEEN 1 AND 5),
 
     -- Trạng thái
                          is_verified BOOLEAN NOT NULL DEFAULT TRUE,
@@ -553,7 +557,7 @@ CREATE TABLE reviews (
     -- Phản hồi từ khách sạn
                          reply TEXT DEFAULT NULL,
                          replied_at DATETIME DEFAULT NULL,
-                         replied_by BIGINT DEFAULT NULL,
+                         replied_by BINARY(16) DEFAULT NULL,
 
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -580,12 +584,12 @@ CREATE TABLE reviews (
 CREATE TABLE room_availability_logs (
                                         log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                         room_id BIGINT NOT NULL,
-                                        old_status ENUM('AVAILABLE','HELD','OCCUPIED','MAINTENANCE','REMOVED') NOT NULL,
-                                        new_status ENUM('AVAILABLE','HELD','OCCUPIED','MAINTENANCE','REMOVED') NOT NULL,
+                                        old_status ENUM('AVAILABLE','OCCUPIED','MAINTENANCE','REMOVED') NOT NULL,
+                                        new_status ENUM('AVAILABLE','OCCUPIED','MAINTENANCE','REMOVED') NOT NULL,
                                         reason VARCHAR(255) DEFAULT NULL,
                                         reservation_id BIGINT DEFAULT NULL,
                                         changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                        changed_by BIGINT DEFAULT NULL,
+                                        changed_by BINARY(16) DEFAULT NULL,
 
                                         INDEX idx_ral_room (room_id),
                                         INDEX idx_ral_changed_at (changed_at),

@@ -7,6 +7,7 @@ import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * DTO phản hồi thông tin người dùng
@@ -19,7 +20,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserResponse {
 
-    Long userId;
+    UUID userId;
     String username;
     String email;
     String status;

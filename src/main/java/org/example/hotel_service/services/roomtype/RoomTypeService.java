@@ -41,11 +41,22 @@ public class RoomTypeService implements RoomTypeServiceImp {
 
 	@Override
 	@Transactional(readOnly = true)
-	public PageResponse<RoomTypeResponse> getRoomTypes(RoomTypeStatus status, int page, int size) {
+	public PageResponse<RoomTypeResponse> getRoomTypes(RoomTypeStatus status, int page, int size, Long priceMin, Long priceMax) {
+		if (page < 0 || size <= 0) {
+			throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+		}
+		if (priceMin != null && priceMin < 0) {
+			throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+		}
+		if (priceMax != null && priceMax < 0) {
+			throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+		}
+		if (priceMin != null && priceMax != null && priceMin > priceMax) {
+			throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+		}
+
 		Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-		Page<RoomType> roomTypePage = status == null
-				? roomTypeRepository.findAllBy(pageable)
-				: roomTypeRepository.findByStatus(status, pageable);
+		Page<RoomType> roomTypePage = roomTypeRepository.findByFilters(status, priceMin, priceMax, pageable);
 
 		return PageResponse.<RoomTypeResponse>builder()
 				.content(roomTypePage.getContent().stream().map(roomTypeMapper::toResponse).collect(Collectors.toList()))

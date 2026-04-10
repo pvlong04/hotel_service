@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -39,7 +40,7 @@ public class NotificationService implements NotificationServiceImp {
     @Override
     @Transactional(readOnly = true)
     public List<NotificationResponse> getMyNotifications(Jwt jwt) {
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(notificationMapper::toResponse)
@@ -49,14 +50,14 @@ public class NotificationService implements NotificationServiceImp {
     @Override
     @Transactional(readOnly = true)
     public long getUnreadCount(Jwt jwt) {
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         return notificationRepository.countByUser_UserIdAndIsReadFalse(userId);
     }
 
     @Override
     @Transactional
     public void markAsRead(Long notificationId, Jwt jwt) {
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
 
@@ -71,7 +72,7 @@ public class NotificationService implements NotificationServiceImp {
     @Override
     @Transactional
     public void markAllAsRead(Jwt jwt) {
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         List<Notification> unread = notificationRepository.findByUser_UserIdAndIsReadFalseOrderByCreatedAtDesc(userId);
         unread.forEach(n -> n.setIsRead(true));
         notificationRepository.saveAll(unread);
@@ -142,13 +143,13 @@ public class NotificationService implements NotificationServiceImp {
         }
     }
 
-    private Long extractUserId(Jwt jwt) {
+    private UUID extractUserId(Jwt jwt) {
         Object userIdClaim = jwt.getClaims().get("userId");
-        if (userIdClaim instanceof Number number) {
-            return number.longValue();
+        if (userIdClaim instanceof UUID id) {
+            return id;
         }
         if (userIdClaim instanceof String text && !text.isBlank()) {
-            return Long.parseLong(text);
+            return UUID.fromString(text);
         }
         throw new ApiException(ErrorCode.UNAUTHENTICATED);
     }

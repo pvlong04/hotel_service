@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -70,9 +71,10 @@ public class UserService implements UserServiceImp {
         return Set.of();
     }
 
-    private Long extractUserId(Jwt jwt) {
+    private UUID extractUserId(Jwt jwt) {
         Object userIdObj = jwt.getClaims().get("userId");
-        if (userIdObj instanceof Number num) return num.longValue();
+        if (userIdObj instanceof UUID id) return id;
+        if (userIdObj instanceof String text && !text.isBlank()) return UUID.fromString(text);
         return null;
     }
 
@@ -150,8 +152,8 @@ public class UserService implements UserServiceImp {
 
     @Override
     @Transactional(readOnly = true)
-    public UserResponse getUserById(Long userId, Jwt jwt) {
-        Long requesterId = extractUserId(jwt);
+    public UserResponse getUserById(UUID userId, Jwt jwt) {
+        UUID requesterId = extractUserId(jwt);
 
         // GUEST chỉ được xem chính mình
         if (!hasRole(jwt, Roles.ADMIN) && !hasRole(jwt, Roles.STAFF)) {
@@ -169,7 +171,7 @@ public class UserService implements UserServiceImp {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getMyProfile(Jwt jwt) {
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         User user = userRepository.findWithProfileAndRolesByUserId(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         return mapper.toResponse(user);
@@ -213,7 +215,7 @@ public class UserService implements UserServiceImp {
         log.info("ADMIN {} created new user: {}", extractUserId(jwt), saved.getUserId());
 
         try {
-            Long actorId = extractUserId(jwt);
+            UUID actorId = extractUserId(jwt);
             User actor = actorId != null ? userRepository.findById(actorId).orElse(null) : null;
             if (actor != null) {
                 notificationService.notifyHierarchy(
@@ -221,7 +223,7 @@ public class UserService implements UserServiceImp {
                         Roles.ADMIN,
                         "tao",
                         "tai khoan",
-                        saved.getUserId(),
+                        null,
                         "username=" + saved.getUsername()
                 );
             }
@@ -234,8 +236,8 @@ public class UserService implements UserServiceImp {
 
     @Override
     @Transactional
-    public UserResponse updateUser(Long userId, UpdateUserRequest request, Jwt jwt) {
-        Long requesterId = extractUserId(jwt);
+    public UserResponse updateUser(UUID userId, UpdateUserRequest request, Jwt jwt) {
+        UUID requesterId = extractUserId(jwt);
         boolean admin = hasRole(jwt, Roles.ADMIN);
 
         // STAFF/GUEST chỉ được cập nhật chính mình
@@ -286,7 +288,7 @@ public class UserService implements UserServiceImp {
                         resolveActorRole(jwt),
                         "cap nhat",
                         "tai khoan",
-                        saved.getUserId(),
+                        null,
                         "username=" + saved.getUsername()
                 );
             }
@@ -299,12 +301,12 @@ public class UserService implements UserServiceImp {
 
     @Override
     @Transactional
-    public void deleteUser(Long userId, Jwt jwt) {
+    public void deleteUser(UUID userId, Jwt jwt) {
         if (!hasRole(jwt, Roles.ADMIN)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }
 
-        Long requesterId = extractUserId(jwt);
+        UUID requesterId = extractUserId(jwt);
         if (userId.equals(requesterId)) {
             throw new ApiException(ErrorCode.CANNOT_DELETE_SELF);
         }
@@ -324,7 +326,7 @@ public class UserService implements UserServiceImp {
                         Roles.ADMIN,
                         "xoa",
                         "tai khoan",
-                        userId,
+                        null,
                         "username=" + user.getUsername()
                 );
             }
@@ -335,7 +337,7 @@ public class UserService implements UserServiceImp {
 
     @Override
     @Transactional
-    public UserResponse updateUserStatus(Long userId, UserStatus status, Jwt jwt) {
+    public UserResponse updateUserStatus(UUID userId, UserStatus status, Jwt jwt) {
         if (!hasRole(jwt, Roles.ADMIN)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }

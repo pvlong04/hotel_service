@@ -35,7 +35,8 @@ public class Role {
     @Column(name = "created_at", updatable = false)
     LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY)
     @Builder.Default
     Set<UserRole> userRoles = new HashSet<>();
 

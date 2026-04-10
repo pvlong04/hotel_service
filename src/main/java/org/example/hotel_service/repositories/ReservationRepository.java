@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -21,7 +22,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     Optional<Reservation> findWithDetailsByReservationId(Long reservationId);
 
     @EntityGraph(attributePaths = {"items", "items.room", "items.roomType"})
-    List<Reservation> findByGuest_UserIdOrderByCreatedAtDesc(Long userId);
+    List<Reservation> findByGuest_UserIdOrderByCreatedAtDesc(UUID userId);
 
     @EntityGraph(attributePaths = {"guest", "items", "items.room", "items.roomType"})
     List<Reservation> findAllByOrderByCreatedAtDesc();

@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -13,6 +14,6 @@ import java.io.Serializable;
 @EqualsAndHashCode
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserRoleId implements Serializable {
-    Long user;
+    UUID user;
     Integer role;
 }

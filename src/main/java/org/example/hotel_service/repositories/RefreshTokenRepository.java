@@ -6,11 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
-    List<RefreshToken> findByUser_UserIdAndRevokedAtIsNull(Long userId);
+    List<RefreshToken> findByUser_UserIdAndRevokedAtIsNull(UUID userId);
 }
 

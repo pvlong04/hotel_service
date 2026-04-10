@@ -23,6 +23,9 @@ public class ReservationCreatedResponse {
     Integer nightsCount;
 
     Long totalAmount;
+    Long roomSubtotal;
+    Long discountAmount;
+    String promotionCode;
     Long paidAmount;
 
     String paymentUrl;

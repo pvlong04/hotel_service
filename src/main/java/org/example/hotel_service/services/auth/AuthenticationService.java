@@ -140,7 +140,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
                     Roles.GUEST,
                     "tao",
                     "tai khoan",
-                    savedUser.getUserId(),
+                    null,
                     "username=" + savedUser.getUsername());
         } catch (Exception ex) {
             log.warn("Failed to notify hierarchy for guest registration {}: {}", savedUser.getUserId(),
@@ -453,7 +453,7 @@ public class AuthenticationService implements AuthenticationServiceImp {
                 .toUriString();
     }
 
-    private void revokeAllActiveRefreshTokens(Long userId, LocalDateTime now) {
+    private void revokeAllActiveRefreshTokens(UUID userId, LocalDateTime now) {
         List<RefreshToken> activeTokens = refreshTokenRepository.findByUser_UserIdAndRevokedAtIsNull(userId);
         for (RefreshToken token : activeTokens) {
             token.setRevokedAt(now);

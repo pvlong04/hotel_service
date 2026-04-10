@@ -10,6 +10,7 @@ import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -21,7 +22,7 @@ public class ReservationResponse {
     String reservationCode;
     String status;
 
-    Long guestId;
+    UUID guestId;
     String guestUsername;
 
     LocalDate checkInDate;
@@ -33,6 +34,9 @@ public class ReservationResponse {
     String specialRequests;
 
     Long totalAmount;
+    Long roomSubtotal;
+    Long discountAmount;
+    String promotionCode;
     Long paidAmount;
 
     String cancelReason;

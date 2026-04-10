@@ -7,16 +7,17 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface AuthTokenRepository extends JpaRepository<AuthToken, Long> {
 
     Optional<AuthToken> findByTokenHashAndPurpose(String tokenHash, TokenPurpose purpose);
 
-    void deleteByUser_UserIdAndPurposeAndUsedAtIsNull(Long userId, TokenPurpose purpose);
+    void deleteByUser_UserIdAndPurposeAndUsedAtIsNull(UUID userId, TokenPurpose purpose);
 
     Optional<AuthToken> findTopByUser_UserIdAndPurposeAndUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
-            Long userId,
+            UUID userId,
             TokenPurpose purpose,
             LocalDateTime now
     );

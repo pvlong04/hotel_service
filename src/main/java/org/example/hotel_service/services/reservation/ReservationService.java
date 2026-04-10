@@ -19,6 +19,7 @@ import org.example.hotel_service.entities.Payment;
 import org.example.hotel_service.entities.Reservation;
 import org.example.hotel_service.entities.ReservationCharge;
 import org.example.hotel_service.entities.ReservationItem;
+import org.example.hotel_service.entities.RoomAvailabilityLog;
 import org.example.hotel_service.entities.Room;
 import org.example.hotel_service.entities.RoomImage;
 import org.example.hotel_service.entities.RoomType;
@@ -34,6 +35,7 @@ import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.PaymentRepository;
 import org.example.hotel_service.repositories.ReservationChargeRepository;
 import org.example.hotel_service.repositories.ReservationRepository;
+import org.example.hotel_service.repositories.RoomAvailabilityLogRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
 import org.example.hotel_service.repositories.UserRepository;
@@ -56,6 +58,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -64,12 +67,17 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ReservationService implements ReservationServiceImp {
 
+    private static final String PROMO_STAY3PAY2 = "STAY3PAY2";
+    private static final String PROMO_WEEKEND20 = "WEEKEND20";
+    private static final String PROMO_FAMILYCOMBO = "FAMILYCOMBO";
+
     ReservationRepository reservationRepository;
     UserRepository userRepository;
     RoomRepository roomRepository;
     RoomTypeRepository roomTypeRepository;
     PaymentRepository paymentRepository;
     ReservationChargeRepository reservationChargeRepository;
+    RoomAvailabilityLogRepository roomAvailabilityLogRepository;
     EmailService emailService;
     NotificationServiceImp notificationService;
 
@@ -127,7 +135,7 @@ public class ReservationService implements ReservationServiceImp {
                 .build();
 
         Set<Long> selectedRoomIds = new HashSet<>();
-        long total = 0L;
+        long roomSubtotal = 0L;
 
         for (CreateReservationRequest.ReservationRoomItem reqItem : request.getRooms()) {
             RoomType roomType = roomTypeRepository.findById(reqItem.getRoomTypeId())
@@ -153,7 +161,7 @@ public class ReservationService implements ReservationServiceImp {
 
             long rate = resolveNightlyRate(roomType, request.getCheckInDate());
             long amount = calculateStayAmount(roomType, request.getCheckInDate(), request.getCheckOutDate());
-            total += amount;
+            roomSubtotal += amount;
 
             ReservationItem item = ReservationItem.builder()
                     .reservation(reservation)
@@ -167,7 +175,21 @@ public class ReservationService implements ReservationServiceImp {
             reservation.getItems().add(item);
         }
 
-        reservation.setTotalAmount(total);
+        String promotionCode = normalizePromotionCode(request.getPromotionCode());
+        long discountAmount = calculatePromotionDiscount(
+                promotionCode,
+                request.getCheckInDate(),
+                request.getCheckOutDate(),
+                safeInt(request.getAdultCount()),
+                safeInt(request.getChildCount()),
+                roomSubtotal,
+                nights
+        );
+
+        reservation.setRoomSubtotal(roomSubtotal);
+        reservation.setDiscountAmount(discountAmount);
+        reservation.setPromotionCode(discountAmount > 0 ? promotionCode : null);
+        reservation.setTotalAmount(Math.max(0L, roomSubtotal - discountAmount));
         Reservation saved = reservationRepository.save(reservation);
 
         try {
@@ -186,12 +208,12 @@ public class ReservationService implements ReservationServiceImp {
                             saved.getReservationCode(), saved.getCheckInDate(), saved.getCheckOutDate()),
                     saved.getReservationId()
             );
-        } catch (Exception ex) {
+        }catch (Exception ex) {
             log.warn("Notification push failed for reservation {}: {}", saved.getReservationId(), ex.getMessage());
         }
 
         try {
-            Long actorId = extractUserId(jwt);
+            UUID actorId = extractUserId(jwt);
             User actor = userRepository.findById(actorId).orElse(null);
             if (actor != null) {
                 notificationService.notifyHierarchy(
@@ -215,18 +237,21 @@ public class ReservationService implements ReservationServiceImp {
                 .checkOutDate(saved.getCheckOutDate())
                 .nightsCount(saved.getNightsCount())
                 .totalAmount(saved.getTotalAmount())
+                .roomSubtotal(saved.getRoomSubtotal())
+                .discountAmount(saved.getDiscountAmount())
+                .promotionCode(saved.getPromotionCode())
                 .paidAmount(saved.getPaidAmount())
                 .message("Tạo đơn đặt phòng thành công")
                 .build();
     }
 
     private User resolveGuestForReservation(CreateReservationRequest request, Jwt jwt) {
-        Long actorId = extractUserId(jwt);
+        UUID actorId = extractUserId(jwt);
         User actor = userRepository.findById(actorId)
-                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
 
         boolean isStaffOrAdmin = hasAnyRole(jwt, Roles.STAFF, Roles.ADMIN);
-        Long targetGuestId = request.getGuestId();
+        UUID targetGuestId = request.getGuestId();
 
         if (!isStaffOrAdmin) {
             if (targetGuestId != null && !Objects.equals(targetGuestId, actorId)) {
@@ -271,7 +296,7 @@ public class ReservationService implements ReservationServiceImp {
     @Override
     @Transactional(readOnly = true)
     public List<ReservationResponse> getMyReservations(Jwt jwt) {
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         return reservationRepository.findByGuest_UserIdOrderByCreatedAtDesc(userId).stream()
                 .map(this::toReservationResponse)
                 .collect(Collectors.toList());
@@ -309,7 +334,7 @@ public class ReservationService implements ReservationServiceImp {
 
         boolean isGuest = hasAnyRole(jwt, Roles.GUEST) && !hasAnyRole(jwt, Roles.ADMIN, Roles.STAFF);
         if (isGuest) {
-            Long userId = extractUserId(jwt);
+            UUID userId = extractUserId(jwt);
             if (!Objects.equals(reservation.getGuest().getUserId(), userId)) {
                 throw new ApiException(ErrorCode.RESERVATION_ACCESS_DENIED);
             }
@@ -355,7 +380,7 @@ public class ReservationService implements ReservationServiceImp {
         }
 
         try {
-            Long actorId = extractUserId(jwt);
+            UUID actorId = extractUserId(jwt);
             User actor = userRepository.findById(actorId).orElse(null);
             if (actor != null) {
                 String action = to == ReservationStatus.CANCELLED ? "huy" : "cap nhat";
@@ -440,7 +465,7 @@ public class ReservationService implements ReservationServiceImp {
             throw new ApiException(ErrorCode.RESERVATION_STATUS_TRANSITION_INVALID);
         }
 
-        Long actorId = extractUserId(jwt);
+        UUID actorId = extractUserId(jwt);
         User actor = userRepository.findById(actorId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
@@ -508,7 +533,7 @@ public class ReservationService implements ReservationServiceImp {
 
         if (targetStatus == ReservationStatus.CONFIRMED) {
             reservation.setConfirmedAt(now);
-            Long actorId = extractUserId(jwt);
+            UUID actorId = extractUserId(jwt);
             User actor = userRepository.findById(actorId).orElse(null);
             reservation.setConfirmedBy(actor);
             return;
@@ -516,13 +541,17 @@ public class ReservationService implements ReservationServiceImp {
 
         if (targetStatus == ReservationStatus.CHECKED_IN) {
             reservation.setCheckedInAt(now);
+            User actor = resolveActor(jwt);
             List<Room> touchedRooms = new ArrayList<>();
             for (ReservationItem item : reservation.getItems()) {
                 item.setStatus(ReservationItemStatus.CHECKED_IN);
                 item.setCheckedInAt(now);
                 if (item.getRoom() != null) {
+                    RoomStatus oldStatus = item.getRoom().getStatus();
                     item.getRoom().setStatus(RoomStatus.OCCUPIED);
                     touchedRooms.add(item.getRoom());
+                    saveRoomAvailabilityLog(item.getRoom(), oldStatus, RoomStatus.OCCUPIED,
+                            "Khach check-in", reservation, actor);
                 }
             }
             roomRepository.saveAll(touchedRooms);
@@ -531,13 +560,17 @@ public class ReservationService implements ReservationServiceImp {
 
         if (targetStatus == ReservationStatus.CHECKED_OUT) {
             reservation.setCheckedOutAt(now);
+            User actor = resolveActor(jwt);
             List<Room> touchedRooms = new ArrayList<>();
             for (ReservationItem item : reservation.getItems()) {
                 item.setStatus(ReservationItemStatus.CHECKED_OUT);
                 item.setCheckedOutAt(now);
                 if (item.getRoom() != null) {
+                    RoomStatus oldStatus = item.getRoom().getStatus();
                     item.getRoom().setStatus(RoomStatus.AVAILABLE);
                     touchedRooms.add(item.getRoom());
+                    saveRoomAvailabilityLog(item.getRoom(), oldStatus, RoomStatus.AVAILABLE,
+                            "Khach check-out", reservation, actor);
                 }
             }
             roomRepository.saveAll(touchedRooms);
@@ -547,15 +580,18 @@ public class ReservationService implements ReservationServiceImp {
         if (targetStatus == ReservationStatus.CANCELLED) {
             reservation.setCancelledAt(now);
             reservation.setCancelReason(cancelReason);
-            Long actorId = extractUserId(jwt);
+            UUID actorId = extractUserId(jwt);
             User actor = userRepository.findById(actorId).orElse(null);
             reservation.setCancelledBy(actor);
             List<Room> touchedRooms = new ArrayList<>();
             for (ReservationItem item : reservation.getItems()) {
                 item.setStatus(ReservationItemStatus.CANCELLED);
                 if (item.getRoom() != null && item.getRoom().getStatus() == RoomStatus.OCCUPIED) {
+                    RoomStatus oldStatus = item.getRoom().getStatus();
                     item.getRoom().setStatus(RoomStatus.AVAILABLE);
                     touchedRooms.add(item.getRoom());
+                    saveRoomAvailabilityLog(item.getRoom(), oldStatus, RoomStatus.AVAILABLE,
+                            "Huy don dat phong", reservation, actor);
                 }
             }
             if (!touchedRooms.isEmpty()) {
@@ -576,11 +612,35 @@ public class ReservationService implements ReservationServiceImp {
         };
     }
 
+    private User resolveActor(Jwt jwt) {
+        UUID actorId = extractUserId(jwt);
+        return actorId != null ? userRepository.findById(actorId).orElse(null) : null;
+    }
+
+    private void saveRoomAvailabilityLog(Room room,
+                                         RoomStatus oldStatus,
+                                         RoomStatus newStatus,
+                                         String reason,
+                                         Reservation reservation,
+                                         User actor) {
+        if (room == null || oldStatus == null || newStatus == null || oldStatus == newStatus) {
+            return;
+        }
+        roomAvailabilityLogRepository.save(RoomAvailabilityLog.builder()
+                .room(room)
+                .oldStatus(oldStatus)
+                .newStatus(newStatus)
+                .reason(reason)
+                .reservation(reservation)
+                .changedBy(actor)
+                .build());
+    }
+
     private void ensureReservationReadable(Reservation reservation, Jwt jwt) {
         if (hasAnyRole(jwt, Roles.ADMIN, Roles.STAFF)) {
             return;
         }
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         if (!Objects.equals(reservation.getGuest().getUserId(), userId)) {
             throw new ApiException(ErrorCode.RESERVATION_ACCESS_DENIED);
         }
@@ -620,6 +680,60 @@ public class ReservationService implements ReservationServiceImp {
         return value == null ? 0 : value;
     }
 
+    private String normalizePromotionCode(String promotionCode) {
+        if (promotionCode == null) {
+            return null;
+        }
+        String normalized = promotionCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private long calculatePromotionDiscount(String promotionCode,
+                                            LocalDate checkIn,
+                                            LocalDate checkOut,
+                                            int adults,
+                                            int children,
+                                            long roomSubtotal,
+                                            int nights) {
+        if (promotionCode == null || roomSubtotal <= 0) {
+            return 0L;
+        }
+
+        long discount;
+        switch (promotionCode) {
+            case PROMO_STAY3PAY2 -> {
+                if (nights < 3) {
+                    throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+                }
+                discount = roomSubtotal / 3;
+            }
+            case PROMO_WEEKEND20 -> {
+                if (!containsWeekend(checkIn, checkOut)) {
+                    throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+                }
+                discount = Math.round(roomSubtotal * 0.2d);
+            }
+            case PROMO_FAMILYCOMBO -> {
+                if (nights < 2 || (adults + children) < 3) {
+                    throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+                }
+                discount = Math.min(300_000L, roomSubtotal);
+            }
+            default -> throw new ApiException(ErrorCode.ILLEGAL_ARGUMENT);
+        }
+
+        return Math.max(0L, Math.min(discount, roomSubtotal));
+    }
+
+    private boolean containsWeekend(LocalDate checkIn, LocalDate checkOut) {
+        for (LocalDate date = checkIn; date.isBefore(checkOut); date = date.plusDays(1)) {
+            if (isWeekend(date)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private ReservationResponse toReservationResponse(Reservation reservation) {
         return ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
@@ -634,6 +748,9 @@ public class ReservationService implements ReservationServiceImp {
                 .childCount(reservation.getChildCount())
                 .specialRequests(reservation.getSpecialRequests())
                 .totalAmount(reservation.getTotalAmount())
+                .roomSubtotal(reservation.getRoomSubtotal())
+                .discountAmount(reservation.getDiscountAmount())
+                .promotionCode(reservation.getPromotionCode())
                 .paidAmount(reservation.getPaidAmount())
                 .cancelReason(reservation.getCancelReason())
                 .confirmedAt(reservation.getConfirmedAt())
@@ -730,13 +847,17 @@ public class ReservationService implements ReservationServiceImp {
                 .collect(Collectors.toList());
     }
 
-    private Long extractUserId(Jwt jwt) {
+    private UUID extractUserId(Jwt jwt) {
         Object userIdClaim = jwt.getClaims().get("userId");
-        if (userIdClaim instanceof Number number) {
-            return number.longValue();
+        if (userIdClaim instanceof UUID id) {
+            return id;
         }
         if (userIdClaim instanceof String text && !text.isBlank()) {
-            return Long.parseLong(text);
+            try {
+                return UUID.fromString(text);
+            } catch (IllegalArgumentException ex) {
+                throw new ApiException(ErrorCode.UNAUTHENTICATED);
+            }
         }
         throw new ApiException(ErrorCode.UNAUTHENTICATED);
     }

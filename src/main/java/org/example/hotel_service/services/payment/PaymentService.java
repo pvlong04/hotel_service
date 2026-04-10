@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -334,21 +335,21 @@ public class PaymentService implements PaymentServiceImp {
         if (hasAnyRole(jwt, Roles.ADMIN, Roles.STAFF)) {
             return;
         }
-        Long userId = extractUserId(jwt);
+        UUID userId = extractUserId(jwt);
         if (!Objects.equals(reservation.getGuest().getUserId(), userId)) {
             throw new ApiException(ErrorCode.RESERVATION_ACCESS_DENIED);
         }
     }
 
-    private Long extractUserId(Jwt jwt) {
+    private UUID extractUserId(Jwt jwt) {
         Object userIdClaim = jwt.getClaims().get("userId");
-        if (userIdClaim instanceof Number) {
-            return ((Number) userIdClaim).longValue();
+        if (userIdClaim instanceof UUID id) {
+            return id;
         }
         if (userIdClaim instanceof String) {
             String text = (String) userIdClaim;
             if (!text.trim().isEmpty()) {
-                return Long.parseLong(text);
+                return UUID.fromString(text);
             }
         }
         throw new ApiException(ErrorCode.UNAUTHENTICATED);

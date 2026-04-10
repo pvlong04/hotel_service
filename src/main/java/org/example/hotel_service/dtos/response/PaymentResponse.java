@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -17,7 +18,7 @@ import java.time.LocalDateTime;
 public class PaymentResponse {
     Long paymentId;
     Long reservationId;
-    Long guestId;
+    UUID guestId;
 
     Long amount;
     String method;

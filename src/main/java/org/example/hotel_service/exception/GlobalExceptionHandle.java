@@ -75,7 +75,13 @@ public class GlobalExceptionHandle {
                 .code(errorCode.getCode())
                 .message(errorCode.getMessage())
                 .build();
-        return ResponseEntity.badRequest().body(apiResponse);
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        if (errorCode == ErrorCode.UNAUTHENTICATED) {
+            status = HttpStatus.UNAUTHORIZED;
+        } else if (errorCode == ErrorCode.ACCESS_DENIED) {
+            status = HttpStatus.FORBIDDEN;
+        }
+        return ResponseEntity.status(status).body(apiResponse);
     }
 
     @ExceptionHandler(value = AccessDeniedException.class)

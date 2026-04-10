@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * DTO phản hồi xác thực (login/register)
@@ -28,7 +29,7 @@ public class AuthResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class UserInfo {
-        Long userId;
+        UUID userId;
         String username;
         String email;
         String fullName;

@@ -7,13 +7,15 @@ import org.example.hotel_service.dtos.response.UserResponse;
 import org.example.hotel_service.enums.UserStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import java.util.UUID;
+
 public interface UserServiceImp {
 
     /** Lấy danh sách người dùng có phân trang + tìm kiếm (ADMIN, STAFF) */
     PageResponse<UserResponse> getAllUsers(String keyword, UserStatus status, int page, int size, Jwt jwt);
 
     /** Lấy thông tin người dùng theo ID (ADMIN, STAFF xem tất cả; GUEST chỉ xem chính mình) */
-    UserResponse getUserById(Long userId, Jwt jwt);
+    UserResponse getUserById(UUID userId, Jwt jwt);
 
     /** Lấy thông tin người dùng hiện tại (tất cả role) */
     UserResponse getMyProfile(Jwt jwt);
@@ -22,11 +24,11 @@ public interface UserServiceImp {
     UserResponse createUser(CreateUserRequest request, Jwt jwt);
 
     /** Cập nhật thông tin người dùng (ADMIN: full; STAFF/GUEST: chỉ chính mình + profile) */
-    UserResponse updateUser(Long userId, UpdateUserRequest request, Jwt jwt);
+    UserResponse updateUser(UUID userId, UpdateUserRequest request, Jwt jwt);
 
     /** Xóa người dùng (chỉ ADMIN) */
-    void deleteUser(Long userId, Jwt jwt);
+    void deleteUser(UUID userId, Jwt jwt);
 
     /** Khóa/mở khóa tài khoản (chỉ ADMIN) */
-    UserResponse updateUserStatus(Long userId, UserStatus status, Jwt jwt);
+    UserResponse updateUserStatus(UUID userId, UserStatus status, Jwt jwt);
 }

@@ -84,6 +84,20 @@ public class Reservation {
     @Builder.Default
     Long totalAmount = 0L;
 
+    /** Tổng tiền phòng trước khi áp dụng ưu đãi */
+    @Column(name = "room_subtotal", nullable = false)
+    @Builder.Default
+    Long roomSubtotal = 0L;
+
+    /** Số tiền được giảm từ ưu đãi */
+    @Column(name = "discount_amount", nullable = false)
+    @Builder.Default
+    Long discountAmount = 0L;
+
+    /** Mã ưu đãi áp dụng (nếu có) */
+    @Column(name = "promotion_code", length = 50)
+    String promotionCode;
+
     /** Số tiền đã thanh toán */
     @Column(name = "paid_amount", nullable = false)
     @Builder.Default
@@ -143,6 +157,8 @@ public class Reservation {
         updatedAt = LocalDateTime.now();
         if (status == null) status = ReservationStatus.PENDING;
         if (totalAmount == null) totalAmount = 0L;
+//        if (roomSubtotal == null) roomSubtotal = 0L;
+//        if (discountAmount == null) discountAmount = 0L;
         if (paidAmount == null) paidAmount = 0L;
         if (adultCount == null) adultCount = 1;
         if (childCount == null) childCount = 0;

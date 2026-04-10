@@ -56,7 +56,7 @@ public class SecurityConfig {
                 .permitAll()
 
                 // Public GET endpoints
-                .requestMatchers(HttpMethod.GET, "/rooms/**", "/room-types/**", "/amenities/**", "/images/**")
+                .requestMatchers(HttpMethod.GET, "/rooms/**", "/room-types/**", "/amenities/**", "/images/**", "/reviews/public/**")
                 .permitAll()
 
 //                .requestMatchers(HttpMethod.GET, PUBLIC_URL_USER).permitAll()

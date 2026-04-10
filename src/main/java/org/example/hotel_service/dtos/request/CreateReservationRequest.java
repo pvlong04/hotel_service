@@ -2,6 +2,7 @@ package org.example.hotel_service.dtos.request;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -28,8 +29,7 @@ import lombok.NoArgsConstructor;
 public class CreateReservationRequest {
 
     /** Optional: STAFF/ADMIN tạo đơn thay cho khách */
-    @Min(value = 1, message = "Guest ID phải lớn hơn 0")
-    Long guestId;
+    UUID guestId;
 
 
     @NotNull(message = "Ngày check-in không được để trống")
@@ -50,6 +50,9 @@ public class CreateReservationRequest {
 
     @Size(max = 2000, message = "Yêu cầu đặc biệt không quá 2000 ký tự")
     String specialRequests;
+
+    @Size(max = 50, message = "Mã ưu đãi không quá 50 ký tự")
+    String promotionCode;
 
     @NotNull(message = "Danh sách phòng không được để trống")
     @Size(min = 1, message = "Phải chọn ít nhất 1 phòng")

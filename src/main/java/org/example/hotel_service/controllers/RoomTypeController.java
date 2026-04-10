@@ -29,50 +29,52 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RoomTypeController {
-	RoomTypeServiceImp roomTypeService;
+    RoomTypeServiceImp roomTypeService;
 
-	@GetMapping
-	public ResponseEntity<ApiResponse<PageResponse<RoomTypeResponse>>> getRoomTypes(
-			@RequestParam(required = false) RoomTypeStatus status,
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size
-	) {
-		PageResponse<RoomTypeResponse> result = roomTypeService.getRoomTypes(status, page, size);
-		return ResponseEntity.ok(ApiResponse.success("Lấy danh sách loại phòng thành công", result));
-	}
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<RoomTypeResponse>>> getRoomTypes(
+            @RequestParam(required = false) RoomTypeStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Long priceMin,
+            @RequestParam(required = false) Long priceMax
+    ) {
+        PageResponse<RoomTypeResponse> result = roomTypeService.getRoomTypes(status, page, size, priceMin, priceMax);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách loại phòng thành công", result));
+    }
 
-	@GetMapping("/{id}")
-	public ResponseEntity<ApiResponse<RoomTypeResponse>> getRoomTypeById(@PathVariable Long id) {
-		RoomTypeResponse result = roomTypeService.getRoomTypeById(id);
-		return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết loại phòng thành công", result));
-	}
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<RoomTypeResponse>> getRoomTypeById(@PathVariable Long id) {
+        RoomTypeResponse result = roomTypeService.getRoomTypeById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết loại phòng thành công", result));
+    }
 
-	@PostMapping
-	public ResponseEntity<ApiResponse<RoomTypeResponse>> createRoomType(
-			@Valid @RequestBody RoomTypeRequest request,
-			@AuthenticationPrincipal Jwt jwt
-	) {
-		RoomTypeResponse result = roomTypeService.createRoomType(request, jwt);
-		return ResponseEntity.status(HttpStatus.CREATED)
-				.body(ApiResponse.success("Tạo loại phòng thành công", result));
-	}
+    @PostMapping
+    public ResponseEntity<ApiResponse<RoomTypeResponse>> createRoomType(
+            @Valid @RequestBody RoomTypeRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        RoomTypeResponse result = roomTypeService.createRoomType(request, jwt);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Tạo loại phòng thành công", result));
+    }
 
-	@PutMapping("/{id}")
-	public ResponseEntity<ApiResponse<RoomTypeResponse>> updateRoomType(
-			@PathVariable Long id,
-			@Valid @RequestBody RoomTypeRequest request,
-			@AuthenticationPrincipal Jwt jwt
-	) {
-		RoomTypeResponse result = roomTypeService.updateRoomType(id, request, jwt);
-		return ResponseEntity.ok(ApiResponse.success("Cập nhật loại phòng thành công", result));
-	}
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<RoomTypeResponse>> updateRoomType(
+            @PathVariable Long id,
+            @Valid @RequestBody RoomTypeRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        RoomTypeResponse result = roomTypeService.updateRoomType(id, request, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật loại phòng thành công", result));
+    }
 
-	@DeleteMapping("/{id}")
-	public ResponseEntity<ApiResponse<Void>> deleteRoomType(
-			@PathVariable Long id,
-			@AuthenticationPrincipal Jwt jwt
-	) {
-		roomTypeService.deleteRoomType(id, jwt);
-		return ResponseEntity.ok(ApiResponse.success("Xóa loại phòng thành công", null));
-	}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteRoomType(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        roomTypeService.deleteRoomType(id, jwt);
+        return ResponseEntity.ok(ApiResponse.success("Xóa loại phòng thành công", null));
+    }
 }

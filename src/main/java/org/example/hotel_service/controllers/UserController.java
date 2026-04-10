@@ -17,6 +17,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 /**
  * Controller quản lý người dùng
  *
@@ -74,7 +76,7 @@ public class UserController {
      */
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @AuthenticationPrincipal Jwt jwt) {
 
         UserResponse result = userService.getUserById(userId, jwt);
@@ -103,7 +105,7 @@ public class UserController {
      */
     @PutMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
@@ -117,7 +119,7 @@ public class UserController {
      */
     @DeleteMapping("/{userId}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @AuthenticationPrincipal Jwt jwt) {
 
         userService.deleteUser(userId, jwt);
@@ -132,7 +134,7 @@ public class UserController {
      */
     @PatchMapping("/{userId}/status")
     public ResponseEntity<ApiResponse<UserResponse>> updateUserStatus(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @RequestParam UserStatus status,
             @AuthenticationPrincipal Jwt jwt) {
 

@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.util.HashSet;
@@ -33,6 +34,7 @@ public class ApplicationInitConfig {
     ApplicationRunner applicationRunner(
             UserRepository repo,
             RoleRepository roleRepository,
+            TransactionTemplate transactionTemplate,
             @Value("${app.bootstrap.admin.enabled:false}") boolean bootstrapEnabled,
             @Value("${app.bootstrap.admin.username:admin}") String bootstrapUsername,
             @Value("${app.bootstrap.admin.email:admin@hotel.local}") String bootstrapEmail,
@@ -49,60 +51,62 @@ public class ApplicationInitConfig {
                 return;
             }
 
-            Role adminRole = roleRepository.findByName(Roles.ADMIN)
-                    .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name(Roles.ADMIN)
-                            .build()));
+            transactionTemplate.executeWithoutResult(status -> {
+                Role adminRole = roleRepository.findByName(Roles.ADMIN)
+                        .orElseGet(() -> roleRepository.save(Role.builder()
+                                .name(Roles.ADMIN)
+                                .build()));
 
-            User user = repo.findWithProfileAndRolesByUsernameOrEmail(bootstrapUsername, bootstrapEmail).orElse(null);
+                User user = repo.findWithProfileAndRolesByUsernameOrEmail(bootstrapUsername, bootstrapEmail).orElse(null);
 
-            if (user == null) {
-                User admin = User.builder()
-                        .username(bootstrapUsername)
-                        .email(bootstrapEmail)
-                        .passwordHash(passwordEncoder.encode(bootstrapPassword))
-                        .status(UserStatus.ACTIVE)
-                        .build();
+                if (user == null) {
+                    User admin = User.builder()
+                            .username(bootstrapUsername)
+                            .email(bootstrapEmail)
+                            .passwordHash(passwordEncoder.encode(bootstrapPassword))
+                            .status(UserStatus.ACTIVE)
+                            .build();
 
-                UserRole adminUserRole = UserRole.builder()
-                        .user(admin)
-                        .role(adminRole)
-                        .build();
+                    UserRole adminUserRole = UserRole.builder()
+                            .user(admin)
+                            .role(adminRole)
+                            .build();
 
-                Set<UserRole> roles = new HashSet<>();
-                roles.add(adminUserRole);
-                admin.setUserRoles(roles);
-                repo.save(admin);
-                log.info("Bootstrap admin user '{}' has been created.", bootstrapUsername);
-                return;
-            }
+                    Set<UserRole> roles = new HashSet<>();
+                    roles.add(adminUserRole);
+                    admin.setUserRoles(roles);
+                    repo.save(admin);
+                    log.info("Bootstrap admin user '{}' has been created.", bootstrapUsername);
+                    return;
+                }
 
-            Set<UserRole> currentRoles = user.getUserRoles() == null
-                    ? new HashSet<>()
-                    : new HashSet<>(user.getUserRoles());
+                Set<UserRole> currentRoles = user.getUserRoles() == null
+                        ? new HashSet<>()
+                        : new HashSet<>(user.getUserRoles());
 
-            boolean hasAdminRole = currentRoles.stream()
-                    .anyMatch(ur -> ur.getRole() != null && ur.getRole().getName() == Roles.ADMIN);
+                boolean hasAdminRole = currentRoles.stream()
+                        .anyMatch(ur -> ur.getRole() != null && ur.getRole().getName() == Roles.ADMIN);
 
-            boolean changed = false;
-            if (!hasAdminRole) {
-                currentRoles.add(UserRole.builder()
-                        .user(user)
-                        .role(adminRole)
-                        .build());
-                user.setUserRoles(currentRoles);
-                changed = true;
-            }
+                boolean changed = false;
+                if (!hasAdminRole) {
+                    currentRoles.add(UserRole.builder()
+                            .user(user)
+                            .role(adminRole)
+                            .build());
+                    user.setUserRoles(currentRoles);
+                    changed = true;
+                }
 
-            if (user.getStatus() != UserStatus.ACTIVE) {
-                user.setStatus(UserStatus.ACTIVE);
-                changed = true;
-            }
+                if (user.getStatus() != UserStatus.ACTIVE) {
+                    user.setStatus(UserStatus.ACTIVE);
+                    changed = true;
+                }
 
-            if (changed) {
-                repo.save(user);
-                log.info("Bootstrap user '{}' has been promoted/activated as ADMIN.", user.getUsername());
-            }
+                if (changed) {
+                    repo.save(user);
+                    log.info("Bootstrap user '{}' has been promoted/activated as ADMIN.", user.getUsername());
+                }
+            });
         };
     }
 }

@@ -9,6 +9,7 @@ import org.example.hotel_service.enums.UserStatus;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -21,9 +22,9 @@ import java.util.Set;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id")
-    Long userId;
+    UUID userId;
 
     @Column(name = "username", nullable = false, unique = true, length = 50)
     String username;

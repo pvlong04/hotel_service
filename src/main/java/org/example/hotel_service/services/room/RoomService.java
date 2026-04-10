@@ -8,15 +8,18 @@ import org.example.hotel_service.dtos.request.RoomRequest;
 import org.example.hotel_service.dtos.response.PageResponse;
 import org.example.hotel_service.dtos.response.RoomResponse;
 import org.example.hotel_service.entities.Floor;
+import org.example.hotel_service.entities.RoomAvailabilityLog;
 import org.example.hotel_service.entities.Room;
 import org.example.hotel_service.entities.RoomImage;
 import org.example.hotel_service.entities.RoomType;
+import org.example.hotel_service.entities.User;
 import org.example.hotel_service.enums.Roles;
 import org.example.hotel_service.enums.ReservationStatus;
 import org.example.hotel_service.enums.RoomStatus;
 import org.example.hotel_service.exception.ApiException;
 import org.example.hotel_service.exception.ErrorCode;
 import org.example.hotel_service.repositories.FloorRepository;
+import org.example.hotel_service.repositories.RoomAvailabilityLogRepository;
 import org.example.hotel_service.repositories.ReservationItemRepository;
 import org.example.hotel_service.repositories.RoomRepository;
 import org.example.hotel_service.repositories.RoomTypeRepository;
@@ -37,6 +40,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -49,6 +53,7 @@ public class RoomService implements RoomServiceImp {
     RoomTypeRepository roomTypeRepository;
     FloorRepository floorRepository;
     ReservationItemRepository reservationItemRepository;
+    RoomAvailabilityLogRepository roomAvailabilityLogRepository;
     UserRepository userRepository;
     NotificationServiceImp notificationService;
     RoomMapper roomMapper;
@@ -170,6 +175,7 @@ public class RoomService implements RoomServiceImp {
         room.setRoomNumber(normalizedRoomNumber);
         room.setRoomType(roomType);
         room.setFloor(floor);
+        RoomStatus oldStatus = room.getStatus();
         room.setStatus(request.getStatus() != null ? request.getStatus() : room.getStatus());
         room.setNote(normalizeNote(request.getNote()));
 
@@ -188,6 +194,16 @@ public class RoomService implements RoomServiceImp {
         }
 
         Room saved = roomRepository.save(room);
+        if (oldStatus != saved.getStatus()) {
+            User actor = resolveActor(jwt);
+            roomAvailabilityLogRepository.save(RoomAvailabilityLog.builder()
+                    .room(saved)
+                    .oldStatus(oldStatus)
+                    .newStatus(saved.getStatus())
+                    .reason("Cap nhat trang thai phong")
+                    .changedBy(actor)
+                    .build());
+        }
         notifyHierarchyForRoomAction(jwt, "cap nhat", saved);
         return roomMapper.toResponse(saved);
     }
@@ -395,20 +411,28 @@ public class RoomService implements RoomServiceImp {
         return Roles.GUEST;
     }
 
-    private Long extractUserId(Jwt jwt) {
+    private User resolveActor(Jwt jwt) {
+        UUID actorId = extractUserId(jwt);
+        if (actorId == null) {
+            return null;
+        }
+        return userRepository.findById(actorId).orElse(null);
+    }
+
+    private UUID extractUserId(Jwt jwt) {
         Object userIdClaim = jwt.getClaims().get("userId");
-        if (userIdClaim instanceof Number number) {
-            return number.longValue();
+        if (userIdClaim instanceof UUID id) {
+            return id;
         }
         if (userIdClaim instanceof String text && !text.isBlank()) {
-            return Long.parseLong(text);
+            return UUID.fromString(text);
         }
         return null;
     }
 
     private void notifyHierarchyForRoomAction(Jwt jwt, String action, Room room) {
         try {
-            Long actorId = extractUserId(jwt);
+            UUID actorId = extractUserId(jwt);
             if (actorId == null) {
                 return;
             }

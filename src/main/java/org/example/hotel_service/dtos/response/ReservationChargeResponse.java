@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -22,7 +23,7 @@ public class ReservationChargeResponse {
     String description;
     Long amount;
 
-    Long createdByUserId;
+    UUID createdByUserId;
     String createdByUsername;
     LocalDateTime createdAt;
 }

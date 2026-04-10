@@ -7,7 +7,7 @@ import org.example.hotel_service.enums.RoomTypeStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 public interface RoomTypeServiceImp {
-	PageResponse<RoomTypeResponse> getRoomTypes(RoomTypeStatus status, int page, int size);
+	PageResponse<RoomTypeResponse> getRoomTypes(RoomTypeStatus status, int page, int size, Long priceMin, Long priceMax);
 
 	RoomTypeResponse getRoomTypeById(Long id);
 

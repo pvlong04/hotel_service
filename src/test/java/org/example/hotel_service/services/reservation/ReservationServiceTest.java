@@ -39,6 +39,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -48,6 +49,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReservationServiceTest {
+
+    private static final UUID GUEST_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @Mock
     ReservationRepository reservationRepository;
@@ -76,7 +79,7 @@ class ReservationServiceTest {
         guestJwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
                 .claims(claims -> {
-                    claims.put("userId", 1L);
+                    claims.put("userId", GUEST_ID.toString());
                     claims.put("roles", List.of("GUEST"));
                 })
                 .issuedAt(Instant.now())
@@ -97,7 +100,7 @@ class ReservationServiceTest {
 
     @Test
     void createPayment_shouldThrowWhenAmountExceedsRemaining() {
-        User guest = User.builder().userId(1L).username("guest").build();
+        User guest = User.builder().userId(GUEST_ID).username("guest").build();
         Reservation reservation = Reservation.builder()
                 .reservationId(10L)
                 .status(ReservationStatus.CONFIRMED)
@@ -120,7 +123,7 @@ class ReservationServiceTest {
 
     @Test
     void createReservation_shouldApplyWeekendPriceForFridaySaturdaySunday() {
-        User guest = buildActiveGuest(1L);
+        User guest = buildActiveGuest(GUEST_ID);
         RoomType roomType = RoomType.builder()
                 .roomTypeId(100L)
                 .pricePerNight(800_000L)
@@ -144,7 +147,7 @@ class ReservationServiceTest {
                         .build()))
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(guest));
+        when(userRepository.findById(GUEST_ID)).thenReturn(Optional.of(guest));
         when(roomTypeRepository.findById(100L)).thenReturn(Optional.of(roomType));
         when(roomRepository.findAvailableRooms(request.getCheckInDate(), request.getCheckOutDate())).thenReturn(List.of(room));
         doAnswer(invocation -> invocation.getArgument(0)).when(reservationRepository).save(any(Reservation.class));
@@ -157,7 +160,7 @@ class ReservationServiceTest {
 
     @Test
     void createReservation_shouldFallbackToWeekdayPriceWhenWeekendPriceIsNull() {
-        User guest = buildActiveGuest(1L);
+        User guest = buildActiveGuest(GUEST_ID);
         RoomType roomType = RoomType.builder()
                 .roomTypeId(101L)
                 .pricePerNight(700_000L)
@@ -181,7 +184,7 @@ class ReservationServiceTest {
                         .build()))
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(guest));
+        when(userRepository.findById(GUEST_ID)).thenReturn(Optional.of(guest));
         when(roomTypeRepository.findById(101L)).thenReturn(Optional.of(roomType));
         when(roomRepository.findAvailableRooms(request.getCheckInDate(), request.getCheckOutDate())).thenReturn(List.of(room));
         doAnswer(invocation -> invocation.getArgument(0)).when(reservationRepository).save(any(Reservation.class));
@@ -191,7 +194,7 @@ class ReservationServiceTest {
         assertEquals(1_400_000L, result.getTotalAmount());
     }
 
-    private User buildActiveGuest(Long userId) {
+    private User buildActiveGuest(UUID userId) {
         User guest = User.builder()
                 .userId(userId)
                 .username("guest")
